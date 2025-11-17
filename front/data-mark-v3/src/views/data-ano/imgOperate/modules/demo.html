@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Polygon Drawing</title>
+    <!-- 引入 fabric.js 库 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
+    <style>
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            margin: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- 绘制多边形按钮 -->
+    <button id="drawPolygonButton">绘制多边形</button>
+    <!-- 绘制矩形按钮 -->
+    <button id="drawRectButton">绘制矩形</button>
+    <!-- 绘制圆形按钮 -->
+    <button id="drawCircleButton">绘制圆形</button>
+    <!-- 画布元素 -->
+    <canvas id="canvas" width="800" height="600"></canvas>
+    <script>
+        const annotationConfig = {
+            point: {
+                radius: 5,
+                fill: 'red',
+                stroke: 'black',
+                strokeWidth: 2,
+                selectable: false
+            },
+            rect: {
+                fill: 'rgba(255,0,0,0.3)',
+                stroke: '#ff0000',
+                strokeWidth: 2,
+                cornerSize: 8,
+                hasRotatingPoint: false,
+                hasControls: true,
+                hasBorders: true
+            },
+            circle: {
+                fill: 'rgba(0,255,0,0.3)',
+                stroke: '#00ff00',
+                strokeWidth: 2,
+                hasControls: true,
+                hasBorders: true,
+                hasRotatingPoint: true
+            },
+            vertexCircle: {
+                radius: 5,
+                fill: 'rgba(0,255,0, 1)',
+                stroke: '',
+                strokeWidth: 2,
+                originX: 'center',
+                originY: 'center',
+                hasControls: false,
+                hasBorders: false,
+                selectable: true,
+                hoverCursor: 'pointer'
+            },
+            polygon: {
+                fill: 'rgba(127, 153, 223 ,0.8)',
+                stroke: '#7f99df',
+                strokeWidth: 2,
+                selectable: false,
+                hasControls: false,
+                hasBorders: false,
+                hasRotatingPoint: false
+            },
+            // 定义高亮状态下圆点的样式
+            highlightedVertexCircle: {
+                fill: 'yellow',
+                scaleX: 1.2,
+                scaleY: 1.2
+            }
+        };
+
+        // 获取画布元素
+        const canvasElement = document.getElementById('canvas');
+        // 创建 fabric 画布实例
+        const drawingCanvas = new fabric.Canvas(canvasElement);
+
+        // 初始状态
+        const initialState = {
+            drawnPolygons: [],
+            currentDrawingPoints: [],
+            currentDrawingCircles: [],
+            currentDrawingPolygon: null,
+            selectedPolygonIndex: -1,
+            isDrawingInProgress: false,
+            isDrawingRect: false,
+            isDrawingCircle: false,
+            currentRect: null,
+            currentCircle: null,
+            startPoint: null,
+            drawnRects: [],
+            drawnCircles: [],
+            drawMode: null
+        };
+
+        // 创建顶点圆点
+        const createVertexCircle = (mousePointer) => {
+            return new fabric.Circle({
+                ...annotationConfig.vertexCircle,
+                left: mousePointer.x,
+                top: mousePointer.y
+            });
+        };
+
+        // 添加悬停效果
+        const addHoverEffect = (circle) => {
+            circle.on('mouseover', () => {
+                circle.scale(1.2);
+                drawingCanvas.renderAll();
+            });
+            circle.on('mouseout', () => {
+                circle.scale(1 / 1.2);
+                drawingCanvas.renderAll();
+            });
+        };
+
+        // 创建多边形
+        const createPolygon = (points) => {
+            return new fabric.Polygon(points, {
+                ...annotationConfig.polygon
+            });
+        };
+
+        // 创建多边形和顶点的 group
+        const createPolygonGroup = (polygon, circles) => {
+            const objects = [polygon, ...circles];
+            return new fabric.Group(objects, {
+                selectable: true,
+                hasControls: false,
+                hasBorders: false,
+                hasRotatingPoint: false
+            });
+        };
+
+        // 隐藏所有顶点圆点
+        const hideAllVertexCircles = (state) => {
+            state.drawnPolygons.forEach(group => {
+                group._objects.slice(1).forEach(circle => {
+                    circle.visible = false;
+                    // 恢复非高亮样式
+                    circle.set({
+                        fill: annotationConfig.vertexCircle.fill,
+                        scaleX: 1,
+                        scaleY: 1
+                    });
+                });
+            });
+            drawingCanvas.renderAll();
+        };
+
+        // 显示指定 group 的顶点圆点并高亮
+        const showAndHighlightGroupVertexCircles = (group) => {
+            group._objects.slice(1).forEach(circle => {
+                circle.visible = true;
+                circle.set(annotationConfig.highlightedVertexCircle);
+            });
+            drawingCanvas.renderAll();
+        };
+
+        // 完成当前绘制
+        const finishCurrentDrawing = (state) => {
+            const newState = { ...state, isDrawingInProgress: false };
+            const newPolygon = newState.currentDrawingPolygon;
+            if (newPolygon) {
+                const group = createPolygonGroup(newPolygon, newState.currentDrawingCircles);
+                newState.drawnPolygons = [...newState.drawnPolygons, group];
+                drawingCanvas.add(group);
+                hideAllVertexCircles(newState);
+            }
+            return {
+                ...newState,
+                currentDrawingPoints: [],
+                currentDrawingCircles: [],
+                currentDrawingPolygon: null,
+                isDrawingInProgress: false
+            };
+        };
+
+        // 处理鼠标点击事件
+        const handleMouseClick = (state, event) => {
+            const pointer = drawingCanvas.getPointer(event.e);
+            const clickedObject = drawingCanvas.findTarget(event.e);
+            const isGroupClicked = clickedObject && state.drawnPolygons.includes(clickedObject);
+            const isCircleClicked = clickedObject && state.drawnPolygons.some(group => {
+                return group._objects.slice(1).includes(clickedObject);
+            });
+
+            if (isGroupClicked) {
+                hideAllVertexCircles(state);
+                showAndHighlightGroupVertexCircles(clickedObject);
+                return {
+                    ...state,
+                    selectedPolygonIndex: state.drawnPolygons.indexOf(clickedObject)
+                };
+            }
+
+            if (isCircleClicked && state.selectedPolygonIndex!== -1) {
+                return state;
+            }
+
+            if (state.drawMode === 'POLYGON' &&!state.isDrawingInProgress) {
+                // 开始新的多边形绘制，隐藏选中 group 的圆点
+                if (state.selectedPolygonIndex!== -1) {
+                    const selectedGroup = state.drawnPolygons[state.selectedPolygonIndex];
+                    selectedGroup._objects.slice(1).forEach(circle => {
+                        circle.visible = false;
+                        circle.set({
+                            fill: annotationConfig.vertexCircle.fill,
+                            scaleX: 1,
+                            scaleY: 1
+                        });
+                    });
+                    state.selectedPolygonIndex = -1;
+                }
+                state = {
+                    ...state,
+                    isDrawingInProgress: true,
+                    currentDrawingPoints: [],
+                    currentDrawingCircles: [],
+                    currentDrawingPolygon: null
+                };
+            }
+
+            if (state.drawMode === 'POLYGON' && state.isDrawingInProgress) {
+                let newState = { ...state, selectedPolygonIndex: -1 };
+
+                if (pointer) {
+                    const newPoint = new fabric.Point(pointer.x, pointer.y);
+                    let newDrawingPoints = [...newState.currentDrawingPoints];
+                    let newDrawingCircles = [...newState.currentDrawingCircles];
+                    let newDrawingPolygon = newState.currentDrawingPolygon;
+
+                    if (newDrawingPoints.length > 0) {
+                        const firstPoint = newDrawingPoints[0];
+                        const distanceToFirstPoint = Math.hypot(
+                            newPoint.x - firstPoint.x,
+                            newPoint.y - firstPoint.y
+                        );
+                        if (distanceToFirstPoint < 10) {
+                            return finishCurrentDrawing(newState);
+                        }
+                    }
+
+                    newDrawingPoints.push(newPoint);
+                    const vertexCircle = createVertexCircle(pointer);
+                    newDrawingCircles.push(vertexCircle);
+                    drawingCanvas.add(vertexCircle);
+                    vertexCircle.bringToFront();
+
+                    if (newDrawingCircles.length === 1) {
+                        addHoverEffect(vertexCircle);
+                    }
+
+                    if (newDrawingPoints.length > 2) {
+                        if (newDrawingPolygon) drawingCanvas.remove(newDrawingPolygon);
+                        newDrawingPolygon = createPolygon(newDrawingPoints);
+                        drawingCanvas.insertAt(newDrawingPolygon, 0);
+                    }
+
+                    return {
+                        ...newState,
+                        currentDrawingPoints: newDrawingPoints,
+                        currentDrawingCircles: newDrawingCircles,
+                        currentDrawingPolygon: newDrawingPolygon
+                    };
+                }
+            }
+            return state;
+        };
+
+        // 处理鼠标双击事件
+        const handleMouseDoubleClick = (state) => {
+            if (state.drawMode === 'POLYGON' && state.isDrawingInProgress && state.currentDrawingPoints.length > 2) {
+                return finishCurrentDrawing(state);
+            }
+            return state;
+        };
+
+        // 处理对象移动事件
+        const handleObjectDrag = (state, event) => {
+            const draggedObject = event.target;
+            const selectedGroup = state.drawnPolygons[state.selectedPolygonIndex];
+
+            if (selectedGroup && selectedGroup._objects.slice(1).includes(draggedObject)) {
+                const polygon = selectedGroup._objects[0];
+                const vertexIndex = selectedGroup._objects.slice(1).indexOf(draggedObject);
+                const newPoints = [...polygon.points];
+                newPoints[vertexIndex] = new fabric.Point(draggedObject.left, draggedObject.top);
+
+                const newPolygon = createPolygon(newPoints);
+                const newCircles = selectedGroup._objects.slice(1);
+                const newGroup = createPolygonGroup(newPolygon, newCircles);
+
+                drawingCanvas.remove(selectedGroup);
+                const newDrawnPolygons = [...state.drawnPolygons];
+                const indexToRemove = newDrawnPolygons.indexOf(selectedGroup);
+                if (indexToRemove!== -1) {
+                    newDrawnPolygons.splice(indexToRemove, 1);
+                }
+                drawingCanvas.add(newGroup);
+                newDrawnPolygons.push(newGroup);
+
+                return {
+                    ...state,
+                    drawnPolygons: newDrawnPolygons,
+                    selectedPolygonIndex: newDrawnPolygons.length - 1
+                };
+            }
+            return state;
+        };
+
+        // 处理鼠标按下事件，开始绘制矩形或圆形
+        const handleMouseDown = (state, event) => {
+            const pointer = drawingCanvas.getPointer(event.e);
+            if (state.drawMode === 'RECT' &&!state.isDrawingInProgress &&!drawingCanvas.getActiveObject()) {
+                state.startPoint = pointer;
+                state.isDrawingRect = true;
+
+                const rect = new fabric.Rect({
+                    ...annotationConfig.rect,
+                    left: pointer.x,
+                    top: pointer.y,
+                    width: 0,
+                    height: 0
+                });
+                state.currentRect = rect;
+                drawingCanvas.add(rect);
+            } else if (state.drawMode === 'CIRCLE' &&!state.isDrawingInProgress &&!drawingCanvas.getActiveObject()) {
+                state.startPoint = pointer;
+                state.isDrawingCircle = true;
+
+                const circle = new fabric.Circle({
+                    ...annotationConfig.circle,
+                    left: pointer.x,
+                    top: pointer.y,
+                    radius: 0
+                });
+                state.currentCircle = circle;
+                drawingCanvas.add(circle);
+            }
+            return state;
+        };
+
+        // 处理鼠标移动事件，更新矩形或圆形大小
+        const handleMouseMove = (state, event) => {
+            const pointer = drawingCanvas.getPointer(event.e);
+            if (state.drawMode === 'RECT' && state.isDrawingRect) {
+                const startPoint = state.startPoint;
+                const width = pointer.x - startPoint.x;
+                const height = pointer.y - startPoint.y;
+
+                state.currentRect.set({
+                    width: Math.abs(width),
+                    height: Math.abs(height),
+                    left: width < 0 ? startPoint.x + width : startPoint.x,
+                    top: height < 0 ? startPoint.y + height : startPoint.y
+                });
+            } else if (state.drawMode === 'CIRCLE' && state.isDrawingCircle) {
+                const startPoint = state.startPoint;
+                const dx = pointer.x - startPoint.x;
+                const dy = pointer.y - startPoint.y;
+                const radius = Math.sqrt(dx * dx + dy * dy);
+
+                state.currentCircle.set({
+                    radius: radius,
+                    left: startPoint.x - radius,
+                    top: startPoint.y - radius
+                });
+            }
+            drawingCanvas.renderAll();
+            return state;
+        };
+
+        // 处理鼠标松开事件，完成矩形或圆形绘制
+        const handleMouseUp = (state) => {
+            if (state.drawMode === 'RECT' && state.isDrawingRect) {
+                state.isDrawingRect = false;
+                state.drawnRects.push(state.currentRect);
+                state.currentRect = null;
+                state.startPoint = null;
+            } else if (state.drawMode === 'CIRCLE' && state.isDrawingCircle) {
+                state.isDrawingCircle = false;
+                state.drawnCircles.push(state.currentCircle);
+                state.currentCircle = null;
+                state.startPoint = null;
+            }
+            return state;
+        };
+
+        // 处理对象选中事件
+        const handleObjectSelected = (event) => {
+            const selectedObject = event.target;
+            if (currentState.drawnPolygons.includes(selectedObject)) {
+                hideAllVertexCircles(currentState);
+                showAndHighlightGroupVertexCircles(selectedObject);
+                currentState.selectedPolygonIndex = currentState.drawnPolygons.indexOf(selectedObject);
+            } else if (currentState.drawnRects.includes(selectedObject) || currentState.drawnCircles.includes(selectedObject)) {
+                // 选中矩形或圆形时隐藏所有多边形顶点圆点
+                hideAllVertexCircles(currentState);
+            }
+            // 选中对象时不能继续绘制
+            currentState.isDrawingInProgress = false;
+            currentState.isDrawingRect = false;
+            currentState.isDrawingCircle = false;
+        };
+
+        // 初始化状态
+        let currentState = initialState;
+
+        // 绑定按钮点击事件来设置 drawMode
+        document.getElementById('drawPolygonButton').addEventListener('click', () => {
+            currentState.drawMode = 'POLYGON';
+        });
+        document.getElementById('drawRectButton').addEventListener('click', () => {
+            currentState.drawMode = 'RECT';
+        });
+        document.getElementById('drawCircleButton').addEventListener('click', () => {
+            currentState.drawMode = 'CIRCLE';
+        });
+
+        // 绑定事件
+        drawingCanvas.on('mouse:down', (event) => {
+            currentState = handleMouseClick(currentState, event);
+            currentState = handleMouseDown(currentState, event);
+        });
+        drawingCanvas.on('mouse:move', (event) => {
+            currentState = handleMouseMove(currentState, event);
+        });
+        drawingCanvas.on('mouse:up', () => {
+            currentState = handleMouseUp(currentState);
+        });
+        drawingCanvas.on('object:moving', (event) => {
+            currentState = handleObjectDrag(currentState, event);
+        });
+        drawingCanvas.on('object:selected', handleObjectSelected);
+        drawingCanvas.on('mouse:dblclick', (event) => {
+            currentState = handleMouseDoubleClick(currentState);
+        });
+    </script>
+</body>
+
+</html>

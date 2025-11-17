@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="140px" height="73px" viewBox="0 0 140 73" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>选择数据集</title>
+    <defs>
+        <rect id="path-1" x="0" y="0" width="20" height="20" rx="10"></rect>
+        <rect id="path-3" x="82" y="36" width="40" height="30" rx="1"></rect>
+        <filter x="-17.5%" y="-33.3%" width="155.0%" height="173.3%" filterUnits="objectBoundingBox" id="filter-4">
+            <feOffset dx="4" dy="1" in="SourceAlpha" result="shadowOffsetOuter1"></feOffset>
+            <feGaussianBlur stdDeviation="3" in="shadowOffsetOuter1" result="shadowBlurOuter1"></feGaussianBlur>
+            <feComposite in="shadowBlurOuter1" in2="SourceAlpha" operator="out" result="shadowBlurOuter1"></feComposite>
+            <feColorMatrix values="0 0 0 0 0.103182954   0 0 0 0 0.242371171   0 0 0 0 0.467360344  0 0 0 0.108555507 0" type="matrix" in="shadowBlurOuter1"></feColorMatrix>
+        </filter>
+    </defs>
+    <g id="1.1-在线标注入口优化-0818" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="数据标注" transform="translate(-246.000000, -766.000000)">
+            <g id="页面备份" transform="translate(0.000000, 590.000000)">
+                <g id="流程引导备份" transform="translate(196.000000, 112.000000)">
+                    <g id="使用流程" transform="translate(24.000000, 64.000000)">
+                        <g id="选择数据集" transform="translate(26.000000, 0.000000)">
+                            <rect id="矩形" x="0" y="0" width="140" height="72"></rect>
+                            <g id="编组-36" transform="translate(19.000000, 6.000000)">
+                                <rect id="矩形" fill="#E6F0FF" x="0" y="0" width="90" height="60.5" rx="1"></rect>
+                                <path d="M1.50657957,0 L89.0257298,0 C89.7107976,-1.25844902e-16 90.2661547,0.555357132 90.2661547,1.24042487 L90.2661547,5 L90.2661547,5 L0.266154698,5 L0.266154698,1.24042487 C0.266154698,0.555357132 0.82151183,3.47889507e-16 1.50657957,0 Z" id="矩形备份-8" fill="#2468F2"></path>
+                                <g id="编组-32" transform="translate(31.000000, 12.000000)">
+                                    <rect id="矩形" fill="#FFFFFF" x="0" y="0" width="52" height="40" rx="1"></rect>
+                                    <g id="编组-21" transform="translate(5.000000, 6.000000)" fill="#A8CAFF">
+                                        <g id="编组-46" transform="translate(15.000000, 1.000000)">
+                                            <rect id="矩形" x="8.17124146e-14" y="0" width="7.05128205" height="2" rx="0.5"></rect>
+                                            <rect id="矩形备份-6" x="0" y="4" width="25" height="5" rx="1"></rect>
+                                        </g>
+                                        <circle id="椭圆形" cx="5" cy="5" r="5"></circle>
+                                    </g>
+                                    <rect id="矩形" fill="#A8CAFF" x="20" y="23" width="7.05128205" height="2" rx="0.5"></rect>
+                                    <rect id="矩形备份-6" fill="#A8CAFF" x="20" y="27" width="25" height="5" rx="1"></rect>
+                                    <circle id="椭圆形" fill="#A8CAFF" cx="10" cy="27" r="5"></circle>
+                                </g>
+                                <g id="编组-4" transform="translate(6.000000, 14.000000)">
+                                    <mask id="mask-2" fill="white">
+                                        <use xlink:href="#path-1"></use>
+                                    </mask>
+                                    <use id="蒙版备份" fill="#FFFFFF" xlink:href="#path-1"></use>
+                                    <ellipse id="椭圆形备份-4" fill="#2468F2" mask="url(#mask-2)" cx="10" cy="18.9283994" rx="9.14475907" ry="9.05370173"></ellipse>
+                                    <ellipse id="椭圆形" fill="#2468F2" mask="url(#mask-2)" cx="10" cy="6.83223303" rx="2.0222025" ry="2.00206677"></ellipse>
+                                </g>
+                                <path d="M15.5,34.5 L15.5,44.5 C15.5,45.0522847 15.9477153,45.5 16.5,45.5 L29.5,45.5 L29.5,45.5" id="路径-5" stroke="#2468F2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="2"></path>
+                            </g>
+                            <g id="矩形">
+                                <use fill="black" fill-opacity="1" filter="url(#filter-4)" xlink:href="#path-3"></use>
+                                <use fill-opacity="0.159118226" fill="#ADD3FF" fill-rule="evenodd" xlink:href="#path-3"></use>
+                            </g>
+                            <rect id="矩形" fill="#A7C8FC" x="93" y="41.2660099" width="17.3913043" height="17.7339901" rx="2"></rect>
+                            <path d="M102,45.2660099 C102.552285,45.2660099 103,45.7171348 103,46.2736256 L103,49.296473 L106,49.296473 C106.552285,49.296473 107,49.747598 107,50.3040888 C107,50.8605796 106.552285,51.3117046 106,51.3117046 L103,51.3117046 L103,54.334552 C103,54.8910428 102.552285,55.3421678 102,55.3421678 C101.447715,55.3421678 101,54.8910428 101,54.334552 L101,51.3117046 L98,51.3117046 C97.4477153,51.3117046 97,50.8605796 97,50.3040888 C97,49.747598 97.4477153,49.296473 98,49.296473 L101,49.296473 L101,46.2736256 C101,46.0063893 101.105357,45.7500983 101.292893,45.5611337 C101.48043,45.3721691 101.734784,45.2660099 102,45.2660099 L102,45.2660099 Z" id="形状" fill="#2468F2" fill-rule="nonzero"></path>
+                        </g>
+                    </g>
+                </g>
+            </g>
+        </g>
+    </g>
+</svg>

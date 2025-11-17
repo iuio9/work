@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="48" height="48" viewBox="0 0 48 48">
+  <defs>
+    <rect id="数据质检-a" width="48" height="48" x="0" y="0"/>
+  </defs>
+  <g fill="none" fill-rule="evenodd">
+    <mask id="数据质检-b" fill="#fff">
+      <use xlink:href="#数据质检-a"/>
+    </mask>
+    <g mask="url(#数据质检-b)">
+      <g transform="translate(2 2)">
+        <polyline stroke="#000" stroke-width="1.5" points="18.38 44 0 44 0 0 44 0 44 22.88"/>
+        <rect width="27.346" height="1.5" x="7.907" y="11.316" fill="#000"/>
+        <rect width="16.723" height="1.5" x="7.91" y="22.465" fill="#000"/>
+        <g transform="scale(-1 1) rotate(45 -42.252 -30.306)">
+          <circle cx="9.333" cy="9.333" r="8.333" stroke="#7636EB" stroke-width="2"/>
+          <polygon fill="#7636EB" points="5.661 19.306 12.661 19.38 12.661 21.306 8.081 21.273 5.661 21.232" transform="rotate(90 9.16 20.306)"/>
+        </g>
+      </g>
+    </g>
+  </g>
+</svg>

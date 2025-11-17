@@ -1,0 +1,112 @@
+[
+  {
+    "labelId": 850,
+    "onlyId": "111_pdxl_bljyz_ps_pscd",
+    "labelName": "配电线路-玻璃绝缘子-破损",
+    "englishLabelName": "111_pdxl_bljyz_ps_pscd",
+    "labelColor": "#C2DDC2",
+    "labelCount": 0,
+    "labelGroupId": 17,
+    "twoLabelName": "玻璃绝缘子-破损",
+    "labelSort": 0
+  },
+  {
+    "labelId": 857,
+    "onlyId": "578238_sdxl_dkq_yx_gjptwss",
+    "labelName": "输电线路-杆塔-异物-塑料",
+    "englishLabelName": "578238_sdxl_dkq_yx_gjptwss",
+    "labelColor": "#B19315",
+    "labelCount": 0,
+    "labelGroupId": 19,
+    "twoLabelName": "杆塔-异物-塑料",
+    "labelSort": 0
+  },
+  {
+    "labelId": 865,
+    "onlyId": "578238_sdxl_dkq_bthxq_gjbs",
+    "labelName": "输电线路-杆塔-橡胶绝缘子-硅胶变色",
+    "englishLabelName": "578238_sdxl_dkq_bthxq_gjbs",
+    "labelColor": "#5ABEA0",
+    "labelCount": 0,
+    "labelGroupId": 19,
+    "twoLabelName": "杆塔-橡胶绝缘子-硅胶变色",
+    "labelSort": 0
+  },
+  {
+    "labelId": 854,
+    "onlyId": "578238_sdxl_dkq_yx_bjbmyw",
+    "labelName": "输电线路-输电线路-驱鸟器-异物-风筝",
+    "englishLabelName": "578238_sdxl_dkq_yx_bjbmyw",
+    "labelColor": "#B1D965",
+    "labelCount": 0,
+    "labelGroupId": 19,
+    "twoLabelName": "输电线路-驱鸟器-异物-风筝",
+    "labelSort": 0
+  },
+  {
+    "labelId": 862,
+    "onlyId": "578238_sdxl_dkq_bthxq_gjtblps",
+    "labelName": "输电线路-6666绝缘子-硅胶筒玻璃破损",
+    "englishLabelName": "578238_sdxl_dkq_bthxq_gjtblps",
+    "labelColor": "#D2CDD9",
+    "labelCount": 0,
+    "labelGroupId": 19,
+    "twoLabelName": "6666绝缘子-硅胶筒玻璃破损",
+    "labelSort": 0
+  },
+  {
+    "labelId": 853,
+    "onlyId": "111_pdxl_qnq_ps",
+    "labelName": "配电线路-驱鸟器_破损",
+    "englishLabelName": "111_pdxl_qnq_ps",
+    "labelColor": "#000000",
+    "labelCount": 0,
+    "labelGroupId": 17,
+    "twoLabelName": "驱鸟器_破损",
+    "labelSort": 0
+  },
+  {
+    "labelId": 859,
+    "onlyId": "578238_sdxl_dkq_btcyg_bjbmyw",
+    "labelName": "输电线路-杆塔-玻璃绝缘子-部件表面油污",
+    "englishLabelName": "578238_sdxl_dkq_btcyg_bjbmyw",
+    "labelColor": "#DDBE2C",
+    "labelCount": 0,
+    "labelGroupId": 19,
+    "twoLabelName": "杆塔-玻璃绝缘子-部件表面油污",
+    "labelSort": 0
+  },
+  {
+    "labelId": 856,
+    "onlyId": "578238_sdxl_dkq_yx_ly",
+    "labelName": "输电线路-杆塔-异物",
+    "englishLabelName": "578238_sdxl_dkq_yx_ly",
+    "labelColor": "#FFE9FF",
+    "labelCount": 0,
+    "labelGroupId": 19,
+    "twoLabelName": "杆塔-异物",
+    "labelSort": 0
+  },
+  {
+    "labelId": 864,
+    "onlyId": "578238_sdxl_dkq_bthxq_yfywyc",
+    "labelName": "输电线路-杆塔-橡胶绝缘子-油封油位异常",
+    "englishLabelName": "578238_sdxl_dkq_bthxq_yfywyc",
+    "labelColor": "#9A3012",
+    "labelCount": 0,
+    "labelGroupId": 19,
+    "twoLabelName": "杆塔-橡胶绝缘子-油封油位异常",
+    "labelSort": 0
+  },
+  {
+    "labelId": 852,
+    "onlyId": "121_gt_gtbm_ps",
+    "labelName": "杆塔-杆塔表面-破损",
+    "englishLabelName": "121_gt_gtbm_ps",
+    "labelColor": "#FD0200",
+    "labelCount": 0,
+    "labelGroupId": 18,
+    "twoLabelName": "杆塔表面-破损",
+    "labelSort": 0
+  }
+]

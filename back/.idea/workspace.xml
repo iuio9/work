@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="91f3b718-74df-4a92-a2e5-12e6759ac2d2" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/common/word/GetDynamicData.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/common/word/WordTemplateMainTest.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/common/word/WordTemplateMainTest1.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/datamark-admin/src/main/resources/templates/申请单模板.docx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/datamark-admin/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/datamark-admin/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/datamark-admin/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/datamark-admin/pom.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/controller/algorithm/CheckClassifyController.java" beforeDir="false" afterPath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/controller/algorithm/CheckClassifyController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/controller/download/FileDownloadController.java" beforeDir="false" afterPath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/controller/download/FileDownloadController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/controller/label/LabelController.java" beforeDir="false" afterPath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/controller/label/LabelController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/controller/modelEvaluation/ModelCodeController.java" beforeDir="false" afterPath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/controller/modelEvaluation/ModelCodeController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/mapper/DataSonMapper.java" beforeDir="false" afterPath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/mapper/DataSonMapper.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/mapper/ModelCodeMapper.java" beforeDir="false" afterPath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/mapper/ModelCodeMapper.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/model/entity/DataSonEntity.java" beforeDir="false" afterPath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/model/entity/DataSonEntity.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/model/entity/ModelAssessConfigEntity.java" beforeDir="false" afterPath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/model/entity/ModelAssessConfigEntity.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/model/entity/ModelBaseEntity.java" beforeDir="false" afterPath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/model/entity/ModelBaseEntity.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/model/entity/ModelConfigureEntity.java" beforeDir="false" afterPath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/model/entity/ModelConfigureEntity.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/model/request/AssessTaskRequest.java" beforeDir="false" afterPath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/model/request/AssessTaskRequest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/model/request/DataSonEntityRequest.java" beforeDir="false" afterPath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/model/request/DataSonEntityRequest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/model/request/DeleteDataSetLabelRequest.java" beforeDir="false" afterPath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/model/request/DeleteDataSetLabelRequest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/model/request/ModelApplyForRequest.java" beforeDir="false" afterPath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/model/request/ModelApplyForRequest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/model/response/DataSonResponse.java" beforeDir="false" afterPath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/model/response/DataSonResponse.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/model/response/DictSetTypeResponse.java" beforeDir="false" afterPath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/model/response/DictSetTypeResponse.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/service/LabelGroupService.java" beforeDir="false" afterPath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/service/LabelGroupService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/service/LabelService.java" beforeDir="false" afterPath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/service/LabelService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/service/ModelCodeService.java" beforeDir="false" afterPath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/service/ModelCodeService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/service/impl/CheckClassifyServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/service/impl/CheckClassifyServiceImpl.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/service/impl/DataFatherServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/service/impl/DataFatherServiceImpl.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/service/impl/DataMarkServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/service/impl/DataMarkServiceImpl.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/service/impl/DataSonDetailsServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/service/impl/DataSonDetailsServiceImpl.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/service/impl/DataSonServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/service/impl/DataSonServiceImpl.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/service/impl/DictDataServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/service/impl/DictDataServiceImpl.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/service/impl/FileExtractServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/service/impl/FileExtractServiceImpl.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/service/impl/LabelGroupServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/service/impl/LabelGroupServiceImpl.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/service/impl/LabelServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/service/impl/LabelServiceImpl.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/service/impl/ManufacturerServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/service/impl/ManufacturerServiceImpl.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/service/impl/ManyToExamineServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/service/impl/ManyToExamineServiceImpl.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/service/impl/ModelApplyForServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/service/impl/ModelApplyForServiceImpl.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/service/impl/ModelBaseServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/service/impl/ModelBaseServiceImpl.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/service/impl/ModelCodeServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/service/impl/ModelCodeServiceImpl.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/utils/FileDownloadUtils.java" beforeDir="false" afterPath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/utils/FileDownloadUtils.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/utils/MyHaoWebSocketUtils.java" beforeDir="false" afterPath="$PROJECT_DIR$/datamark-admin/src/main/java/com/qczy/utils/MyHaoWebSocketUtils.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/datamark-admin/src/main/resources/application-aliyun.yml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/datamark-admin/src/main/resources/application-test.yml" beforeDir="false" afterPath="$PROJECT_DIR$/datamark-admin/src/main/resources/application-test.yml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/datamark-admin/src/main/resources/application.yml" beforeDir="false" afterPath="$PROJECT_DIR$/datamark-admin/src/main/resources/application.yml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/datamark-admin/src/main/resources/mapper/DataSonMapper.xml" beforeDir="false" afterPath="$PROJECT_DIR$/datamark-admin/src/main/resources/mapper/DataSonMapper.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/datamark-admin/src/main/resources/mapper/ModelCodeMapper.xml" beforeDir="false" afterPath="$PROJECT_DIR$/datamark-admin/src/main/resources/mapper/ModelCodeMapper.xml" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/datamark-admin" />
+  </component>
+  <component name="MavenImportPreferences">
+    <option name="generalSettings">
+      <MavenGeneralSettings>
+        <option name="localRepository" value="F:\DOWN\maven\apache-maven-3.9.11\repository" />
+        <option name="userSettingsFile" value="F:\DOWN\maven\apache-maven-3.9.11\conf\settings.xml" />
+      </MavenGeneralSettings>
+    </option>
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;customColor&quot;: &quot;&quot;,
+  &quot;associatedIndex&quot;: 4
+}</component>
+  <component name="ProjectId" id="32aookol9C4ddaEus7mtxqLwSd6" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;JAR 应用程序.datamark-admin-1.0-SNAPSHOT.jar.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
+    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;F:/yuanma/back&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;project.structure.last.edited&quot;: &quot;SDK&quot;,
+    &quot;project.structure.proportion&quot;: &quot;0.15&quot;,
+    &quot;project.structure.side.proportion&quot;: &quot;0.2&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;configurable.group.language&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  }
+}</component>
+  <component name="RunManager">
+    <configuration name="datamark-admin-1.0-SNAPSHOT.jar" type="JarApplication" temporary="true">
+      <option name="JAR_PATH" value="$PROJECT_DIR$/datamark-admin/target/datamark-admin-1.0-SNAPSHOT.jar" />
+      <method v="2" />
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="JAR 应用程序.datamark-admin-1.0-SNAPSHOT.jar" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-jdk-9823dce3aa75-bf35d07a577b-intellij.indexing.shared.core-IU-252.26199.169" />
+        <option value="bundled-js-predefined-d6986cc7102b-9c94529fcfe0-JavaScript-IU-252.26199.169" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="91f3b718-74df-4a92-a2e5-12e6759ac2d2" name="Changes" comment="" />
+      <created>1757668221329</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1757668221329</updated>
+      <workItem from="1758465059581" duration="1275000" />
+      <workItem from="1758715356210" duration="1186000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="XSLT-Support.FileAssociations.UIState">
+    <expand />
+    <select />
+  </component>
+</project>

@@ -1,0 +1,21 @@
+[
+  {
+    "label": "输入框input",
+    "type": "input",
+    "value": ""
+  },
+  {
+    "label": "number",
+    "type": "number",
+    "value": ""
+  },
+  {
+    "label": "select",
+    "type": "select",
+    "options": [
+      { "label": "000", "value": "0"},
+      { "label": "111", "value": "1"}
+    ],
+    "value": ""
+  }
+]

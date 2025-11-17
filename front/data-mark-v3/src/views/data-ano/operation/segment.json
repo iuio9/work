@@ -1,0 +1,114 @@
+{
+  "flags": {},
+  "imageData": null,
+  "imageHeight": 3024,
+  "imagePath": "insulator_3.jpeg",
+  "imageWidth": 4032,
+  "shapes": [
+    {
+      "flags": {},
+      "group_id": null,
+      "label": "Auto_labeled",
+      "points": [
+        [2671, 1940],
+        [2683, 1967]
+      ],
+      "shape_type": "polygon",
+      "text": ""
+    },
+    {
+      "flags": {},
+      "group_id": null,
+      "label": "Auto_labeled",
+      "points": [
+        [1317, 1193],
+        [1292, 1260],
+        [1241, 1263],
+        [1250, 1316],
+        [1196, 1407],
+        [1211, 1457],
+        [1175, 1474],
+        [1137, 1659],
+        [983, 1996],
+        [911, 2228],
+        [937, 2312],
+        [886, 2500],
+        [959, 2330],
+        [1033, 2280],
+        [1195, 1752],
+        [1222, 1738],
+        [1235, 1615],
+        [1266, 1597],
+        [1301, 1405],
+        [1355, 1301],
+        [1317, 1267]
+      ],
+      "shape_type": "polygon",
+      "text": ""
+    },
+    {
+      "flags": {},
+      "group_id": null,
+      "label": "Auto_labeled",
+      "points": [
+        [1348, 1117],
+        [1332, 1161],
+        [1366, 1144]
+      ],
+      "shape_type": "polygon",
+      "text": ""
+    },
+    {
+      "flags": {},
+      "group_id": null,
+      "label": "Auto_labeled",
+      "points": [1361, 1072],
+      "shape_type": "polygon",
+      "text": ""
+    },
+    {
+      "flags": {},
+      "group_id": null,
+      "label": "Auto_labeled",
+      "points": [
+        [2983, 1002],
+        [2935, 1000],
+        [2861, 1316],
+        [2694, 1785],
+        [2702, 1891],
+        [2780, 1812],
+        [3017, 1032]
+      ],
+      "shape_type": "polygon",
+      "text": ""
+    },
+    {
+      "flags": {},
+      "group_id": null,
+      "label": "Auto_labeled",
+      "points": [1392, 954],
+      "shape_type": "polygon",
+      "text": ""
+    },
+    {
+      "flags": {},
+      "group_id": null,
+      "label": "Auto_labeled",
+      "points": [
+        [1506, 497],
+        [1505, 529]
+      ],
+      "shape_type": "polygon",
+      "text": ""
+    },
+    {
+      "flags": {},
+      "group_id": null,
+      "label": "Auto_labeled",
+      "points": [1533, 427],
+      "shape_type": "polygon",
+      "text": ""
+    }
+  ],
+  "version": "1.0.0"
+}

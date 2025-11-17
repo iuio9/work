@@ -1,0 +1,37 @@
+@import './scrollbar.scss';
+
+.n-data-table-thead {
+  box-shadow: none;
+  .n-data-table-th {
+    background: #eeeeee !important;
+  }
+}
+
+.n-data-table-wrapper {
+  border: 1px solid #ededed !important;
+}
+
+.n-data-table-tbody {
+  box-shadow: none;
+  .n-data-table-tr {
+    border: none !important;
+    box-shadow: none;
+    &:hover {
+      background: #eeeeee !important;
+      box-shadow: none;
+    }
+    .n-data-table-td {
+      //border-bottom: 1px solid #eeeeee !important;
+      box-shadow: none;
+    }
+  }
+}
+
+.n-scrollbar-container {
+  box-shadow: none !important;
+  //border: 1px solid #eeeeee !important;
+}
+
+.n-data-table {
+  --n-merged-border-color: #eeeeee !important;
+}
