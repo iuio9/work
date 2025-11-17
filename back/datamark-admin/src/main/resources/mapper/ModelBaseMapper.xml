@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.qczy.mapper.ModelBaseMapper">
+
+
+    <select id="list" resultType="com.qczy.model.response.ModelApplyForListResponse" parameterType="com.qczy.model.request.ModelApplyForRequestParam">
+        SELECT
+        ba.id,
+        ba.apply_for_num,
+        ba.model_name,
+        ba.model_type,
+        ba.build_unit_name,
+        ba.bt_unit_name,
+        ba.apply_for_type,
+        ba.apply_for_status,
+        ba.apply_for_date,
+        us.nick_name,
+        IF(ba.model_way =1,'测试','评估') as modelWayStr
+        FROM
+        qczy_model_base ba
+        JOIN qczy_model_configure co ON ba.id = co.model_base_id
+        JOIN qczy_user us on ba.user_id = us.id
+        <where>
+            <if test="param.modelName!=null and param.modelName!=''">
+                and ba.model_name like '%${param.modelName}%'
+            </if>
+            <if test="param.buildUnitName!=null and param.buildUnitName!=''">
+                and ba.build_unit_name like '%${param.buildUnitName}%'
+            </if>
+            <if test="param.btUnitName!=null and param.btUnitName!=''">
+                and ba.bt_unit_name like '%${param.btUnitName}%'
+            </if>
+            <if test="param.applyForDateStart != null">
+                and ba.apply_for_date &gt; #{param.applyForDateStart}
+            </if>
+            <if test="param.applyForDateEnd != null">
+                and ba.apply_for_date &lt;= #{param.applyForDateEnd}
+            </if>
+            <!-- 新增条件：非管理员和领导登录时只查询当前用户的数据 -->
+            <if test="!isAdminLogin">
+                and ba.user_id = #{userId}
+            </if>
+        </where>
+        ORDER BY ba.id DESC
+    </select>
+
+    <select id="approveList" resultType="com.qczy.model.response.ModelApplyForListResponse">
+        SELECT
+        ba.id,
+        ba.apply_for_num,
+        ba.model_name,
+        ba.model_type,
+        ba.build_unit_name,
+        ba.bt_unit_name,
+        ba.apply_for_type,
+        ba.approve_status as applyForStatus,
+        ba.apply_for_date,
+        us.nick_name,
+        IF(ba.model_way =1,'测试','评估') as modelWayStr
+        FROM
+        qczy_model_base ba
+        JOIN qczy_model_configure co ON ba.id = co.model_base_id
+        JOIN qczy_user us on ba.user_id = us.id
+        <where>
+               and ba.apply_for_status in (2,3,4,5)
+            <if test="param.modelName!=null and param.modelName!=''">
+                and ba.model_name like '%${param.modelName}%'
+            </if>
+            <if test="param.buildUnitName!=null and param.buildUnitName!=''">
+                and ba.build_unit_name like '%${param.buildUnitName}%'
+            </if>
+            <if test="param.btUnitName!=null and param.btUnitName!=''">
+                and ba.bt_unit_name like '%${param.btUnitName}%'
+            </if>
+            <if test="param.applyForDateStart != null">
+                and ba.apply_for_date &gt; #{param.applyForDateStart}
+            </if>
+            <if test="param.applyForDateEnd != null">
+                and ba.apply_for_date &lt;= #{param.applyForDateEnd}
+            </if>
+        </where>
+        ORDER BY ba.id DESC
+    </select>
+</mapper>

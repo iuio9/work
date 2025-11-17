@@ -1,0 +1,89 @@
+#   ---------------- 生产环境 ----------------
+
+server:
+  #服务端口
+  port: 9091
+
+spring:
+  datasource:
+    username: root
+    password: qczy1717
+    url: jdbc:mysql://10.5.28.224:3306/datamark?useUnicode=true&useSSL=false&characterEncoding=utf8&serverTimezone=Asia/Shanghai&&allowPublicKeyRetrieval=true
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    druid:
+      # 初始化大小，最小，最大
+      initial-size: 5
+      min-idle: 5
+      max-active: 20
+      # 配置获取连接等待超时的时间
+      max-wait: 60000
+      # 配置间隔多久才进行一次检测，检测需要关闭的空闲连接，单位毫秒
+      time-between-eviction-runs-millis: 60000
+      # 配置一个连接在池中最小生存时间
+      min-evictable-idle-time-millis: 300000
+      validation-query: SELECT 1 FROM sys_user
+      test-while-idle: true
+      test-on-borrow: false
+      test-on-return: false
+      # 打开 PSCache，并且指定每个连接上 PSCache 的大小
+      pool-prepared-statements: true
+      max-pool-prepared-statement-per-connection-size: 20
+      # 配置监控统计拦截的 Filter，去掉后监控界面 SQL 无法统计，wall 用于防火墙
+      filters: stat,wall,log4j
+      # 通过 connection-properties 属性打开 mergeSql 功能；慢 SQL 记录
+      connection-properties: druid.stat.mergeSql\=true;druid.stat.slowSqlMillis\=5000
+
+  #遇到同样名字的时候覆盖注册
+  main:
+    allow-bean-definition-overriding: true
+
+  servlet:
+    multipart:
+      max-file-size: 3000MB
+      max-request-size: 10000MB
+  mvc:
+    static-path-pattern: /images/**
+
+mybatis-plus:
+  #  mapper-locations: classpath:/qczy/**/*.xml #指定mapper.xml路径
+  mapper-locations: classpath:/mapper/*.xml
+  type-aliases-package: com.qczy.model.entity.*
+  global-config:
+    db-config:
+      id-type: auto #全局默认主键类型设置为自增
+  configuration:
+    auto-mapping-behavior: partial #只对非嵌套的 resultMap 进行自动映射
+    map-underscore-to-camel-case: true #开启自动驼峰命名规则映射
+    # log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+
+# 自定义jwt key
+jwt:
+  tokenHeader: Authorization #JWT存储的请求头
+  secret: mySecret #JWT加解密使用的密钥
+  expiration: 604800 #JWT的超期限时间(60*60*24)
+  tokenHead: Bearer  #JWT负载中拿到开头cd
+
+upload:
+  port: http://10.5.28.224:8080/temp/file/  #用于返回给前端访问临时文件的访问路径
+  address: http:10.5.28.224:9091/
+  tempPath: /usr/local/qczyDataMark/temp/  #临时文件夹存储位置
+  formalPath: /usr/local/qczyDataMark/formal/ # 正式文件夹存储位置
+  zipPath: /usr/local/gczyDataMark/tempZip/
+  modelDescPath: /usr/local/qczyDataMark/file/modelDesc/ #模型评估 - 模型API接口说明存放位置
+  modelCasePath: /usr/local/qczyDataMark/file/modelCase/ #模型案例 - 模型API接口说明存放位置
+  pdfPath: /usr/local/qczyDataMark/file/file/pdf/ #pdf申请单 - pdf申请单存放位置
+
+file:
+  accessAddress: http://10.5.28.224:9091/formal/  #正式文件访问地址
+  accessAddress1: http://10.5.28.224:9091/formal/  #正式文件访问地址
+  tempAccessAddress: http://10.5.28.224:9091/formal/
+  versionFormat: /v  #版本格式
+monitor:
+  server: http://10.5.28.8:8080/monitor/server
+
+flask:
+  algorithmPicHttp: http://10.5.28.64:8088
+  algorithmPicHttp1: http://10.5.28.64:8088
+  prefixToRemove: /home/flux
+  prefixToRemove1: /data

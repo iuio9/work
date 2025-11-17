@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.qczy.mapper.LoginLogMapper">
+
+
+    <select id="selectLoginLogList" resultType="com.qczy.model.entity.LoginLogEntity" parameterType="com.qczy.model.entity.LoginLogEntity">
+        select * from qczy_login_log
+        <where>
+            <if test="req.loginName != null and req.loginName  != ''">
+                and login_name like concat('%', #{req.loginName}, '%')
+            </if>
+
+            <if test="req.ipaddr != null and req.ipaddr  != ''">
+                and ipaddr like concat('%', #{req.ipaddr}, '%')
+            </if>
+        </where>
+        order by login_time desc
+    </select>
+
+
+
+</mapper>

@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.qczy.mapper.DataFatherMapper">
+    <resultMap type="com.qczy.model.entity.DataFatherEntity" id="DataFatherResult">
+        <result property="id"    column="id"    />
+        <result property="groupId"    column="group_id"    />
+        <result property="groupName"    column="group_name"    />
+        <result property="userId"    column="user_id"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateTime"    column="update_time"    />
+    </resultMap>
+
+    <resultMap type="com.qczy.model.response.DataResponse" id="DataFatherResult2">
+        <result property="groupId"    column="group_id"    />
+        <result property="groupName"    column="group_name"    />
+        <result property="createTime"    column="create_time"    />
+    </resultMap>
+
+    <sql id="selectDataFatherVo">
+        select id, group_id, group_name, user_id,create_time, update_time from qczy_data_father
+    </sql>
+
+    <select id="selectDataFatherList" parameterType="com.qczy.mapper.DataFatherMapper" resultMap="DataFatherResult">
+        <include refid="selectDataFatherVo"/>
+        <where>
+            <if test="groupId != null "> and group_id = #{groupId}</if>
+            <if test="groupName != null  and groupName != ''"> and group_name like concat('%', #{groupName}, '%')</if>
+        </where>
+    </select>
+
+    <select id="selectDataFatherById" parameterType="Integer" resultMap="DataFatherResult">
+        <include refid="selectDataFatherVo"/>
+        where id = #{id}
+    </select>
+
+
+    <insert id="insertDataFather" parameterType="com.qczy.mapper.DataFatherMapper">
+        insert into qczy_data_father
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="id != null">id,</if>
+            <if test="groupId != null">group_id,</if>
+            <if test="groupName != null and groupName != ''">group_name,</if>
+            <if test="userId != null and userId != ''">user_id,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateTime != null">update_time,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="id != null">#{id},</if>
+            <if test="groupId != null">#{groupId},</if>
+            <if test="groupName != null and groupName != ''">#{groupName},</if>
+            <if test="userId != null and userId != ''">#{userId},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+        </trim>
+    </insert>
+
+    <update id="updateDataFather" parameterType="com.qczy.mapper.DataFatherMapper">
+        update qczy_data_father
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="groupId != null">group_id = #{groupId},</if>
+            <if test="userId != null">user_id = #{userId},</if>
+            <if test="groupName != null and groupName != ''">group_name = #{groupName},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteDataFatherById" parameterType="Integer">
+        delete from qczy_data_father where id = #{id}
+    </delete>
+
+    <delete id="deleteDataFatherByIds" parameterType="String">
+        delete from qczy_data_father where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+
+
+
+<!--    <select id="SelectFatherResponseList"  parameterType="com.qczy.mapper.DataFatherMapper" resultType="com.qczy.model.response.DataResponse" >
+        SELECT
+        fa.group_id AS groupId,
+        fa.group_name AS groupName,
+        fa.create_time AS createTime
+        FROM
+        qczy_data_father AS fa
+        LEFT JOIN qczy_user AS us ON fa.user_id = us.id
+        <where>
+            <if test="req.groupName != null  and req.groupName != ''">
+                and fa.group_name like concat('%', #{req.groupName}, '%')
+            </if>
+            <if test="req.dataTypeId != null  and req.dataTypeId != ''">
+                and fa.data_type_id = #{req.dataTypeId}
+            </if>
+            AND
+            us.dept_ids IN (${ids})
+        </where>
+        ORDER BY
+        fa.create_time DESC
+    </select>-->
+
+
+    <select id="SelectFatherResponseList"  parameterType="com.qczy.model.entity.DataFatherEntity" resultType="com.qczy.model.response.DataResponse" >
+        SELECT
+        fa.group_id AS groupId,
+        fa.group_name AS groupName,
+        fa.create_time AS createTime
+        FROM
+        qczy_data_father AS fa
+        LEFT JOIN qczy_user AS us ON fa.user_id = us.id
+        <where>
+
+            <if test="req.groupName != null  and req.groupName != ''">
+                and fa.group_name like concat('%', #{req.groupName}, '%')
+            </if>
+            <if test="req.dataTypeId != null  and req.dataTypeId != ''">
+                and fa.data_type_id in (${req.dataTypeIds})
+            </if>
+        </where>
+        ORDER BY
+        fa.create_time DESC
+    </select>
+
+
+    <select id="SelectFatherResponseListNoPage" resultType="com.qczy.model.response.DataResponse">
+        SELECT fa.group_id    AS groupId,
+               fa.group_name  AS groupName,
+               fa.create_time AS createTime
+        FROM qczy_data_father AS fa
+                 LEFT JOIN qczy_user AS us ON fa.user_id = us.id
+        ORDER BY fa.create_time DESC
+    </select>
+
+
+</mapper>

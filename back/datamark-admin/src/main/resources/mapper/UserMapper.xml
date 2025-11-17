@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.qczy.mapper.UserMapper">
+
+    <resultMap type="com.qczy.model.entity.UserEntity" id="QczyUserResult">
+        <result property="id"    column="id"    />
+        <result property="userName"    column="user_name"    />
+        <result property="password"    column="password"    />
+        <result property="nickName"    column="nick_name"    />
+        <result property="userGender"    column="user_gender"    />
+        <result property="userEmail"    column="user_email"    />
+        <result property="userPhone"    column="user_phone"    />
+        <result property="status"    column="status"    />
+        <result property="userRoles"    column="user_roles"    />
+        <result property="deptIds"    column="dept_ids"    />
+        <result property="isAllowDeletion"    column="is_allow_deletion"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateTime"    column="update_time"    />
+        <result property="isDeleted"    column="is_deleted"    />
+    </resultMap>
+
+    <sql id="selectUserVo">
+        select
+            id,
+            user_name,
+            password,
+            nick_name,
+            user_gender,
+            user_email,
+            user_phone,
+            status,
+            user_roles,
+            dept_ids,
+            is_allow_deletion,
+            create_time,
+            update_time,
+            is_deleted,
+            -- 使用 FIND_IN_SET 函数判断 user_roles 中是否包含 1
+            CASE
+                WHEN FIND_IN_SET('1', user_roles) > 0 THEN 1
+                ELSE 0
+                END AS isHide
+        from qczy_user
+    </sql>
+
+    <select id="selectUserList"  resultType="com.qczy.model.entity.UserEntity" parameterType="com.qczy.model.request.UserRequest" >
+        <include refid="selectUserVo"/>
+        <where>
+            <if test="req.userName!=null and req.userName!=''">
+                and user_name like '%${req.userName}%'
+            </if>
+            <if test="req.nickName!=null and req.nickName!=''">
+                and nick_name like '%${req.nickName}%'
+            </if>
+            <if test="req.userGender!=null and req.userGender!= '0'">
+                and user_gender = #{req.userGender}
+            </if>
+            <if test="req.userPhone!=null and req.userPhone!=''">
+                and user_phone like '%${req.userPhone}%'
+            </if>
+            <if test="req.userEmail!=null and req.userEmail!=''">
+                and user_email like '%${req.userEmail}%'
+            </if>
+            <if test="req.status!=null and req.status!=''">
+                and status = #{req.status}
+            </if>
+            <if test="req.deptId!=null ">
+                and dept_ids like concat('%', #{req.deptId}, '%')
+            </if>
+            and is_deleted = 0
+        </where>
+        order by create_time
+    </select>
+    
+    <select id="selectUserById" parameterType="Integer" resultType="com.qczy.model.entity.UserEntity">
+        <include refid="selectUserVo"/>
+        where id = #{id}
+    </select>
+
+    <insert id="insertUser" parameterType="com.qczy.model.entity.UserEntity">
+        insert into qczy_user
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="id != null">id,</if>
+            <if test="userName != null and userName != ''">user_name,</if>
+            <if test="password != null and password != ''">password,</if>
+            <if test="nickName != null">nick_name,</if>
+            <if test="userGender != null">user_gender,</if>
+            <if test="userEmail != null">user_email,</if>
+            <if test="userPhone != null">user_phone,</if>
+            <if test="status != null">status,</if>
+            <if test="userRoles != null and userRoles != ''">user_roles,</if>
+            <if test="deptIds != null and deptIds != ''">dept_ids,</if>
+            <if test="isAllowDeletion != null">is_allow_deletion,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="isDeleted != null">is_deleted,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="id != null">#{id},</if>
+            <if test="userName != null and userName != ''">#{userName},</if>
+            <if test="password != null and password != ''">#{password},</if>
+            <if test="nickName != null">#{nickName},</if>
+            <if test="userGender != null">#{userGender},</if>
+            <if test="userEmail != null">#{userEmail},</if>
+            <if test="userPhone != null">#{userPhone},</if>
+            <if test="status != null">#{status},</if>
+            <if test="userRoles != null and userRoles != ''">#{userRoles},</if>
+            <if test="deptIds != null and deptIds != ''">#{deptIds},</if>
+            <if test="isAllowDeletion != null">#{isAllowDeletion},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="isDeleted != null">#{isDeleted},</if>
+        </trim>
+    </insert>
+
+    <update id="updateUser" parameterType="com.qczy.model.entity.UserEntity">
+        update qczy_user
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="userName != null and userName != ''">user_name = #{userName},</if>
+            <if test="password != null and password != ''">password = #{password},</if>
+            <if test="nickName != null">nick_name = #{nickName},</if>
+            <if test="userGender != null">user_gender = #{userGender},</if>
+            <if test="userEmail != null">user_email = #{userEmail},</if>
+            <if test="userPhone != null">user_phone = #{userPhone},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="userRoles != null and userRoles != ''">user_roles = #{userRoles},</if>
+            <if test="deptIds != null and deptIds != ''">dept_ids = #{deptIds},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="isDeleted != null">is_deleted = #{isDeleted},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteUserById" parameterType="Integer">
+        delete from qczy_user where id = #{id}
+    </delete>
+
+    <delete id="deleteUserByIds" parameterType="String">
+        delete from qczy_user where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+</mapper>

@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.qczy.mapper.DeptMapper">
+
+    <resultMap type="com.qczy.model.entity.DeptEntity" id="DeptResult">
+        <result property="id"    column="id"    />
+        <result property="deptName"    column="dept_name"    />
+        <result property="sort"    column="sort"    />
+        <result property="supt"    column="supt"    />
+        <result property="telePhone"    column="tele_phone"    />
+        <result property="email"    column="email"    />
+        <result property="status"    column="status"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateTime"    column="update_time"    />
+        <result property="isAllowDeletion"    column="is_allow_deletion"    />
+    </resultMap>
+
+    <sql id="selectDeptVo">
+        select id, dept_name, sort, supt, tele_phone, email, status, create_time, update_time, is_allow_deletion from qczy_dept
+    </sql>
+
+    <select id="selectDeptList" parameterType="com.qczy.model.entity.DeptEntity" resultMap="DeptResult">
+        <include refid="selectDeptVo"/>
+        <where>
+            <if test="req.deptName != null  and req.deptName != ''"> and dept_name like concat('%', #{req.deptName}, '%')</if>
+            <if test="req.status != null "> and status = #{req.status}</if>
+        </where>
+        order by sort
+    </select>
+
+    <select id="selectDeptById" parameterType="Integer" resultMap="DeptResult">
+        <include refid="selectDeptVo"/>
+        where id = #{id}
+    </select>
+
+    <insert id="insertDept" parameterType="com.qczy.model.entity.DeptEntity" useGeneratedKeys="true" keyProperty="id">
+        insert into qczy_dept
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="deptName != null and deptName != ''">dept_name,</if>
+            <if test="sort != null">sort,</if>
+            <if test="supt != null">supt,</if>
+            <if test="telePhone != null">tele_phone,</if>
+            <if test="email != null">email,</if>
+            <if test="status != null">status,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="isAllowDeletion != null">is_allow_deletion,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="deptName != null and deptName != ''">#{deptName},</if>
+            <if test="sort != null">#{sort},</if>
+            <if test="supt != null">#{supt},</if>
+            <if test="telePhone != null">#{telePhone},</if>
+            <if test="email != null">#{email},</if>
+            <if test="status != null">#{status},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="isAllowDeletion != null">#{isAllowDeletion},</if>
+        </trim>
+    </insert>
+
+    <update id="updateDept" parameterType="com.qczy.model.entity.DeptEntity">
+        update qczy_dept
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="deptName != null and deptName != ''">dept_name = #{deptName},</if>
+            <if test="sort != null">sort = #{sort},</if>
+            <if test="supt != null">supt = #{supt},</if>
+            <if test="telePhone != null">tele_phone = #{telePhone},</if>
+            <if test="email != null">email = #{email},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="isAllowDeletion != null">is_allow_deletion = #{isAllowDeletion},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteDeptById" parameterType="Integer">
+        delete from qczy_dept where id = #{id}
+    </delete>
+
+    <delete id="deleteDeptByIds" parameterType="int">
+        delete from qczy_dept where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+</mapper>

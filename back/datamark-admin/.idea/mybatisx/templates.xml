@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="TemplatesSettings">
+    <option name="templateConfigs">
+      <TemplateContext>
+        <option name="generateConfig">
+          <GenerateConfig>
+            <option name="annotationType" value="NONE" />
+            <option name="basePackage" value="generator" />
+            <option name="basePath" value="src/main/java" />
+            <option name="classNameStrategy" value="camel" />
+            <option name="encoding" value="UTF-8" />
+            <option name="extraClassSuffix" value="1" />
+            <option name="ignoreFieldPrefix" value="1" />
+            <option name="ignoreFieldSuffix" value="1" />
+            <option name="ignoreTablePrefix" value="1" />
+            <option name="ignoreTableSuffix" value="1" />
+            <option name="moduleName" value="datamark-admin" />
+            <option name="modulePath" value="$PROJECT_DIR$" />
+            <option name="moduleUIInfoList">
+              <list>
+                <ModuleInfoGo>
+                  <option name="basePath" value="src/main/java" />
+                  <option name="configFileName" value="domain.ftl" />
+                  <option name="configName" value="domain" />
+                  <option name="encoding" value="UTF-8" />
+                  <option name="fileName" value="${domain.fileName}" />
+                  <option name="fileNameWithSuffix" value="${domain.fileName}.java" />
+                  <option name="modulePath" value="$PROJECT_DIR$" />
+                  <option name="packageName" value="generator.domain" />
+                </ModuleInfoGo>
+              </list>
+            </option>
+            <option name="needsComment" value="true" />
+            <option name="needsModel" value="true" />
+            <option name="relativePackage" value="domain" />
+            <option name="superClass" value="com.qczy.common.base.BaseEntity" />
+            <option name="tableUIInfoList">
+              <list>
+                <TableUIInfo>
+                  <option name="className" value="QczyTeam" />
+                  <option name="tableName" value="qczy_team" />
+                </TableUIInfo>
+              </list>
+            </option>
+            <option name="templatesName" value="custom-model-swagger" />
+            <option name="useLombokPlugin" value="true" />
+          </GenerateConfig>
+        </option>
+        <option name="moduleName" value="datamark-admin" />
+        <option name="projectPath" value="$PROJECT_DIR$" />
+        <option name="templateName" value="custom-model-swagger" />
+      </TemplateContext>
+    </option>
+  </component>
+</project>

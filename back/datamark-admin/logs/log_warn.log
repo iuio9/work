@@ -1,0 +1,10 @@
+2025-09-30 14:46:25.387 [background-preinit] WARN  o.s.h.converter.json.Jackson2ObjectMapperBuilder - For Jackson Kotlin classes support please add "com.fasterxml.jackson.module:jackson-module-kotlin" to the classpath
+2025-09-30 14:46:27.993 [main] WARN  c.b.mybatisplus.core.metadata.TableInfoHelper - Can not find table primary key in Class: "com.qczy.model.entity.OperLogEntity".
+2025-09-30 14:46:29.887 [main] WARN  c.b.mybatisplus.core.metadata.TableInfoHelper - Can not find table primary key in Class: "com.qczy.model.entity.AlgorithmTaskResultEntity".
+2025-09-30 14:46:30.258 [main] WARN  c.b.mybatisplus.core.metadata.TableInfoHelper - Can not find table primary key in Class: "com.qczy.model.entity.RoleMenuEntity".
+2025-09-30 14:46:30.258 [main] WARN  c.b.mybatisplus.core.metadata.TableInfoHelper - Can not find table primary key in Class: "com.qczy.model.entity.RoleButtonEntity".
+2025-09-30 14:59:58.023 [background-preinit] WARN  o.s.h.converter.json.Jackson2ObjectMapperBuilder - For Jackson Kotlin classes support please add "com.fasterxml.jackson.module:jackson-module-kotlin" to the classpath
+2025-09-30 15:00:00.550 [main] WARN  c.b.mybatisplus.core.metadata.TableInfoHelper - Can not find table primary key in Class: "com.qczy.model.entity.OperLogEntity".
+2025-09-30 15:00:02.743 [main] WARN  c.b.mybatisplus.core.metadata.TableInfoHelper - Can not find table primary key in Class: "com.qczy.model.entity.AlgorithmTaskResultEntity".
+2025-09-30 15:00:03.125 [main] WARN  c.b.mybatisplus.core.metadata.TableInfoHelper - Can not find table primary key in Class: "com.qczy.model.entity.RoleMenuEntity".
+2025-09-30 15:00:03.135 [main] WARN  c.b.mybatisplus.core.metadata.TableInfoHelper - Can not find table primary key in Class: "com.qczy.model.entity.RoleButtonEntity".

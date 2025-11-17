@@ -1,0 +1,322 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.qczy.mapper.FileMapper">
+
+    <delete id="deleteFileByIds" parameterType="String">
+        delete from qczy_file where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+
+    <select id="selectFileAndlabel" resultType="com.qczy.model.response.DataDetailsResponse">
+        SELECT
+        fo.id AS id,
+        fi.id AS fileId,
+        fi.width,
+        fi.height,
+        fo.mark_file_id AS markFileId,
+        ifnull(fo.is_invalid,1) as isInvalid,
+        IF
+        (fo.mark_info IS NOT NULL AND LENGTH(fo.mark_info) > 0 AND fo.mark_info &lt;&gt; '[]', 1, 0) as isMark,
+        IFNULL(fo.labels, '') AS labels,
+        fo.mark_info AS markInfo,
+        fo.operate_width AS operateWidth,
+        fo.operate_height AS operateHeight,
+        fo.label_mark_info,
+        fi.http_file_path,
+        mf.not_pass_message
+        FROM qczy_file AS fi
+        LEFT JOIN qczy_mark_info AS fo ON fi.id = fo.file_id
+        LEFT JOIN qczy_many_file as mf ON fi.id = mf.file_id
+        <where>
+            <if test="labelId!=null and labelId!=''">
+                and fo.labels like '%${labelId}%'
+            </if>
+            AND fi.id IN (${fileIds})
+            AND fi.file_status = 0
+        </where>
+        ORDER BY fileId
+    </select>
+<!--    ORDER BY
+    IF(fo.mark_info IS NOT NULL
+    AND LENGTH( fo.mark_info ) > 0
+    AND fo.mark_info &lt;&gt; '[]', 0, 1),
+    fo.mark_info-->
+
+    <select id="selectFileAndlabelYesMark" resultType="com.qczy.model.response.DataDetailsResponse">
+        SELECT
+        fo.id AS id,
+        fi.id AS fileId,
+        fo.mark_file_id AS markFileId,
+        IF
+        (fo.id IS NOT NULL, 1, 0) AS isMark,
+        IFNULL(fo.labels, '') AS labels,
+        fo.mark_info AS markInfo,
+        fo.label_mark_info,
+        ifnull(fo.is_invalid,1) as isInvalid,
+        fi.width,
+        fi.height,
+        fo.operate_width AS operateWidth,
+        fo.operate_height AS operateHeight,
+        mf.not_pass_message
+        FROM qczy_file AS fi
+        LEFT JOIN qczy_mark_info AS fo ON fi.id = fo.file_id
+        LEFT JOIN qczy_many_file as mf ON fi.id = mf.file_id
+        <where>
+            <if test="labelId!=null and labelId!=''">
+                and fo.labels like '%${labelId}%'
+            </if>
+            AND fi.id IN (${fileIds})
+            AND fo.mark_info IS NOT NULL
+            AND LENGTH(fo.mark_info) > 0
+            AND fo.mark_info &lt;&gt; '[]'
+            AND fi.file_status = 0
+        </where>
+        ORDER BY fileId
+    </select>
+
+
+    <select id="selectFileAndlabelNoMark" resultType="com.qczy.model.response.DataDetailsResponse">
+        SELECT
+        fo.id AS id,
+        fi.id AS fileId,
+        fo.mark_file_id AS markFileId,
+        '0' AS isMark,
+        IF
+        (fo.labels != '' OR fo.labels IS NOT NULL, fo.labels, '') AS labels,
+        fo.mark_info AS markInfo,
+        fo.label_mark_info,
+        ifnull(fo.is_invalid,1) as isInvalid,
+        fi.width,
+        fi.height,
+        fo.operate_width AS operateWidth,
+        fo.operate_height AS operateHeight,
+        mf.not_pass_message
+        FROM qczy_file AS fi
+        LEFT JOIN qczy_mark_info AS fo ON fi.id = fo.file_id
+        LEFT JOIN qczy_many_file as mf ON fi.id = mf.file_id
+        <where>
+            <if test="labelId!=null and labelId!=''">
+                and fo.labels like '%${labelId}%'
+            </if>
+            AND fi.id IN (${fileIds})
+            AND (fo.mark_info IS NULL OR LENGTH(fo.mark_info) = 0 OR fo.mark_info = '[]')
+            AND ( fo.is_invalid = 1 OR fo.is_invalid IS NULL )
+            AND fi.file_status = 0
+        </where>
+        ORDER BY fileId
+    </select>
+
+    <select id="selectFileInvalidData" resultType="com.qczy.model.response.DataDetailsResponse">
+        SELECT
+        fo.id AS id,
+        fi.id AS fileId,
+        fo.mark_file_id AS markFileId,
+        '0' AS isMark,
+        IF
+        (fo.labels != '' OR fo.labels IS NOT NULL, fo.labels, '') AS labels,
+        fo.mark_info AS markInfo,
+        fo.label_mark_info,
+        ifnull(fo.is_invalid,1) as isInvalid,
+        fi.width,
+        fi.height,
+        fo.operate_width AS operateWidth,
+        fo.operate_height AS operateHeight,
+        mf.not_pass_message
+        FROM qczy_file AS fi
+        LEFT JOIN qczy_mark_info AS fo ON fi.id = fo.file_id
+        LEFT JOIN qczy_many_file as mf ON fi.id = mf.file_id
+        <where>
+            <if test="labelId!=null and labelId!=''">
+                and fo.labels like '%${labelId}%'
+            </if>
+            AND fi.id IN (${fileIds})
+            AND fo.is_invalid = 0
+            AND fi.file_status = 0
+        </where>
+        ORDER BY fileId
+    </select>
+
+
+
+    <select id="selectFileAndlabelNoPage" resultType="com.qczy.model.response.DataDetailsResponse">
+        SELECT fo.id                                                                                        AS id,
+               fi.id                                                                                        AS fileId,
+               fi.width,
+               fi.height,
+               fo.mark_file_id                                                                              AS markFileId,
+               IF
+               (fo.mark_info IS NOT NULL AND LENGTH(fo.mark_info) > 0 AND fo.mark_info &lt;&gt; '[]', 1, 0) as isMark,
+               IFNULL(fo.labels, '')                                                                        AS labels,
+               fo.mark_info                                                                                 AS markInfo,
+               fo.operate_width                                                                             AS operateWidth,
+               fo.operate_height                                                                            AS operateHeight,
+               fo.label_mark_info
+        FROM qczy_file AS fi
+                 LEFT JOIN qczy_mark_info AS fo ON fi.id = fo.file_id
+        WHERE fi.id IN (${fileIds})
+          AND fi.file_status = 0
+        ORDER BY fileId
+    </select>
+
+    <select id="selectFileAndlabelYesMarkNoPage" resultType="com.qczy.model.response.DataDetailsResponse">
+        SELECT fo.id                     AS id,
+               fi.id                     AS fileId,
+               fo.mark_file_id           AS markFileId,
+               IF
+               (fo.id IS NOT NULL, 1, 0) AS isMark,
+               IFNULL(fo.labels, '')     AS labels,
+               fo.mark_info              AS markInfo,
+               fo.label_mark_info
+        FROM qczy_file AS fi
+                 LEFT JOIN qczy_mark_info AS fo ON fi.id = fo.file_id
+        WHERE fi.id IN (${fileIds})
+          AND fo.mark_info IS NOT NULL
+          AND LENGTH(fo.mark_info) > 0
+          AND fo.mark_info &lt;&gt; '[]'
+          AND fi.file_status = 0
+        ORDER BY fileId
+    </select>
+
+
+    <select id="selectFileAndlabelNoMarkNoPage" resultType="com.qczy.model.response.DataDetailsResponse">
+        SELECT fo.id                                                     AS id,
+               fi.id                                                     AS fileId,
+               fo.mark_file_id                                           AS markFileId,
+               '0'                                                       AS isMark,
+               IF
+               (fo.labels != '' OR fo.labels IS NOT NULL, fo.labels, '') AS labels,
+               fo.mark_info                                              AS markInfo,
+               fo.label_mark_info
+        FROM qczy_file AS fi
+                 LEFT JOIN qczy_mark_info AS fo ON fi.id = fo.file_id
+        WHERE fi.id IN (${fileIds})
+          AND (fo.mark_info IS NULL OR LENGTH(fo.mark_info) = 0 OR fo.mark_info = '[]')
+          AND fi.file_status = 0
+        ORDER BY fileId
+    </select>
+
+    <select id="getFileNoMark" resultType="java.lang.Integer">
+        SELECT
+            IF
+            ( fo.mark_info IS NOT NULL AND LENGTH( fo.mark_info ) > 0 AND fo.mark_info &lt;&gt; '[]', 1, 0 ) AS isMark
+        FROM
+            qczy_file AS fi
+                LEFT JOIN qczy_mark_info AS fo ON fi.id = fo.file_id
+        WHERE
+            fi.id = #{fileId}
+          AND fi.file_status = 0;
+    </select>
+
+
+
+    <select id="selectFileAndlabelCount" resultType="int">
+        SELECT
+            count(1)
+        FROM qczy_file AS fi
+                 LEFT JOIN qczy_mark_info AS fo ON fi.id = fo.file_id
+        WHERE fi.id IN (${fileIds})
+          AND fi.file_status = 0
+    </select>
+
+    <select id="selectFileAndlabelYesMarkCount" resultType="int">
+        SELECT
+            count(1)
+        FROM qczy_file AS fi
+                 LEFT JOIN qczy_mark_info AS fo ON fi.id = fo.file_id
+        WHERE fi.id IN (${fileIds})
+          AND fo.mark_info IS NOT NULL
+          AND LENGTH(fo.mark_info) > 0
+          AND fo.mark_info &lt;&gt; '[]'
+          AND fi.file_status = 0
+    </select>
+
+
+    <select id="selectFileAndlabelNoMarkCount" resultType="int">
+        SELECT
+            count(1)
+        FROM qczy_file AS fi
+                 LEFT JOIN qczy_mark_info AS fo ON fi.id = fo.file_id
+        WHERE fi.id IN (${fileIds})
+          AND (fo.mark_info IS NULL OR LENGTH(fo.mark_info) = 0 OR fo.mark_info = '[]')
+          AND (fo.is_invalid = 1 OR fo.is_invalid IS NULL )
+          AND fi.file_status = 0
+    </select>
+
+    <select id="selectFileInvalidDataCount" resultType="java.lang.Integer">
+        SELECT
+            count(1)
+        FROM qczy_file AS fi
+                 LEFT JOIN qczy_mark_info AS fo ON fi.id = fo.file_id
+        WHERE fi.id IN (${fileIds})
+          AND fo.is_invalid = 0
+          AND fi.file_status = 0
+    </select>
+
+
+
+
+    <select id="selectFileAndlabelVersionTwo" resultType="com.qczy.model.response.DataDetailsResponse">
+        SELECT
+            fi.id AS fileId,
+            concat( #{accessAddress}, #{groupId},#{versionFormat},#{version},#{separator},'source',#{separator},fi.fd_name ) AS imgPath,
+            IF
+            ( fo.id > 0, 1, 0 ) AS isMark,
+            IF
+            ( fo.labels != '' OR fo.labels IS NOT NULL, fo.labels, '' ) AS labels
+        FROM
+            qczy_file AS fi
+                LEFT JOIN qczy_mark_info AS fo ON fi.id = fo.file_id
+        WHERE
+            fi.id IN (${fileIds})
+          AND
+            fi.file_status = 0
+    </select>
+
+
+    <select id="getFileListBySonId" resultType="com.qczy.model.entity.FileEntity">
+        SELECT fi.id,
+               fi.fd_name,
+               fi.fd_path
+        FROM qczy_data_son AS so
+                 LEFT JOIN qczy_file AS fi ON FIND_IN_SET(fi.id, so.file_ids) > 0
+        WHERE so.son_id = #{sonId};
+    </select>
+
+    <!--查看手动标注和厂商标注的数据列表-->
+    <select id="selectFileMarkInfoAndlabel" resultType="com.qczy.model.response.DataDetailsResponse">
+        SELECT
+        fo.id AS id,
+        fi.id AS fileId,
+        fi.width,
+        fi.height,
+        fo.mark_file_id AS markFileId,
+        IFNULL(fo.is_invalid, 1) AS isInvalid,
+        IF
+        (fo.mark_info IS NOT NULL AND LENGTH(fo.mark_info) > 0 AND fo.mark_info &lt;&gt; '[]', 1, 0) as isMark,
+        IFNULL(fo.labels, '') AS labels,
+        IFNULL(io.mark_info, fo.mark_info) AS markInfo,
+        fo.operate_width AS operateWidth,
+        fo.operate_height AS operateHeight,
+        fo.label_mark_info,
+        fi.http_file_path,
+        mf.not_pass_message
+        FROM qczy_file AS fi
+        LEFT JOIN qczy_mark_info AS fo ON fi.id = fo.file_id
+        LEFT JOIN qczy_many_file AS mf ON fi.id = mf.file_id
+        LEFT JOIN qczy_model_mark_info AS io ON io.file_id = fi.id AND io.task_id = #{taskId}
+        <where>
+            <if test="labelId!=null and labelId!=''">
+                and fo.labels like '%${labelId}%'
+            </if>
+            AND fi.id IN (${fileIds})
+            AND fi.file_status = 0
+        </where>
+    </select>
+
+
+</mapper>

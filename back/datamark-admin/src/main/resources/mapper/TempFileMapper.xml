@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.qczy.mapper.TempFileMapper">
+
+    <resultMap type="com.qczy.model.entity.TempFileEntity" id="TempFileResult">
+        <result property="id"    column="id"    />
+        <result property="fdName"    column="fd_name"    />
+        <result property="fdType"    column="fd_type"    />
+        <result property="fdTempPath"    column="fd_temp_path"    />
+        <result property="fdSize"    column="fd_size"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateTime"    column="update_time"    />
+    </resultMap>
+
+    <sql id="selectTempFileVo">
+        select id, fd_name, fd_type,fd_suffix, fd_temp_path,fd_access_path, fd_size, create_time, update_time from qczy_temp_file
+    </sql>
+
+    <select id="selectTempFileList" parameterType="com.qczy.model.entity.TempFileEntity" resultMap="TempFileResult">
+        <include refid="selectTempFileVo"/>
+        <where>
+            <if test="fdName != null  and fdName != ''"> and fd_name like concat('%', #{fdName}, '%')</if>
+            <if test="fdType != null  and fdType != ''"> and fd_type = #{fdType}</if>
+            <if test="fdTempPath != null  and fdTempPath != ''"> and fd_temp_path = #{fdTempPath}</if>
+            <if test="fdSize != null  and fdSize != ''"> and fd_size = #{fdSize}</if>
+        </where>
+    </select>
+
+    <select id="selectTempFileById" parameterType="Integer" resultMap="TempFileResult">
+        <include refid="selectTempFileVo"/>
+        where id = #{id}
+    </select>
+
+    <insert id="insertTempFile" parameterType="com.qczy.model.entity.TempFileEntity" useGeneratedKeys="true" keyProperty="id">
+        insert into qczy_temp_file
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="fdName != null">fd_name,</if>
+            <if test="fdType != null">fd_type,</if>
+            <if test="fdSuffix != null">fd_suffix,</if>
+            <if test="fdTempPath != null">fd_temp_path,</if>
+            <if test="fdAccessPath != null">fd_access_path,</if>
+            <if test="fdSize != null">fd_size,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateTime != null">update_time,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="fdName != null">#{fdName},</if>
+            <if test="fdType != null">#{fdType},</if>
+            <if test="fdSuffix != null">#{fdSuffix},</if>
+            <if test="fdTempPath != null">#{fdTempPath},</if>
+            <if test="fdAccessPath != null">#{fdAccessPath},</if>
+            <if test="fdSize != null">#{fdSize},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+        </trim>
+    </insert>
+
+    <update id="updateTempFile" parameterType="com.qczy.model.entity.TempFileEntity">
+        update qczy_temp_file
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="fdName != null">fd_name = #{fdName},</if>
+            <if test="fdType != null">fd_type = #{fdType},</if>
+            <if test="fdSuffix != null">fd_suffix = #{fdSuffix},</if>
+            <if test="fdTempPath != null">fd_temp_path = #{fdTempPath},</if>
+            <if test="fdAccessPath != null">fd_access_path = #{fdAccessPath},</if>
+            <if test="fdSize != null">fd_size = #{fdSize},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteTempFileById" parameterType="Integer">
+        delete from qczy_temp_file where id = #{id}
+    </delete>
+
+    <delete id="deleteTempFileByIds" parameterType="String">
+        delete from qczy_temp_file where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+</mapper>

@@ -1,0 +1,68 @@
+#   ---------------- 开发环境 ----------------
+
+server:
+  #服务端口
+  port: 9091
+
+spring:
+  datasource:
+    username: root
+    password: qczy1717
+    url: jdbc:mysql://localhost:3306/datamark?useUnicode=true&useSSL=false&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+
+  #遇到同样名字的时候覆盖注册
+  main:
+    allow-bean-definition-overriding: true
+
+  servlet:
+    multipart:
+      max-file-size: 30MB
+  mvc:
+    static-path-pattern: /images/**
+  resources:
+    static-locations: file:H://qczy
+
+mybatis-plus:
+  #  mapper-locations: classpath:/qczy/**/*.xml #指定mapper.xml路径
+  mapper-locations: classpath:/mapper/*.xml
+  type-aliases-package: com.qczy.model.entity.*
+  global-config:
+    db-config:
+      id-type: auto #全局默认主键类型设置为自增
+  configuration:
+    auto-mapping-behavior: partial #只对非嵌套的 resultMap 进行自动映射
+    map-underscore-to-camel-case: true #开启自动驼峰命名规则映射
+    # log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+
+# 自定义jwt key
+jwt:
+  tokenHeader: Authorization #JWT存储的请求头
+  secret: mySecret #JWT加解密使用的密钥
+  expiration: 604800 #JWT的超期限时间(60*60*24)
+  tokenHead: Bearer  #JWT负载中拿到开头cd
+
+upload:
+  port: http:10.5.28.224:8080/temp/file/  #用于返回给前端访问临时文件的访问路径
+  address: http:10.5.28.224:9091/
+  tempPath: /usr/local/qczyDataMark/temp/  #临时文件夹存储位置
+  formalPath: /usr/local/qczyDataMark/formal/ # 正式文件夹存储位置
+  zipPath: /usr/local/gczyDataMark/tempZip/
+  modelDescPath: /usr/local/qczyDataMark/file/modelDesc/ #模型评估 - 模型API接口说明存放位置
+  modelCasePath: /usr/local/qczyDataMark/file/modelCase/ #模型案例 - 模型API接口说明存放位置
+  pdfPath: /usr/local/qczyDataMark/file/file/pdf/ #pdf申请单 - pdf申请单存放位置
+
+file:
+  accessAddress: http://10.5.28.224:9091/formal/  #正式文件访问地址
+  accessAddress1: http://10.5.28.224:9091/formal/  #正式文件访问地址
+  versionFormat: /v  #版本格式
+monitor:
+  server: http://10.5.28.8:8080/monitor/server
+
+flask:
+  algorithmPicHttp: http://10.5.28.8
+  algorithmPicHttp1: http://10.5.28.8/data
+  prefixToRemove: /home/lyl-casia/ghf/data2
+  prefixToRemove1: /data

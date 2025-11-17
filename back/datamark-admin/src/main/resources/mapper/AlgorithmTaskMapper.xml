@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.qczy.mapper.AlgorithmTaskMapper">
+
+
+    <select id="getTaskPage" resultType="com.qczy.model.entity.AlgorithmTaskEntity"
+    parameterType="com.qczy.model.entity.AlgorithmTaskEntity">
+        SELECT
+        ta.task_id,
+        ta.task_input_name,
+        ta.model_id,
+        ta.data_set_id,
+        ta.dataset_out_id,
+        ta.algorithm_id,
+        ta.task_name,
+        ta.task_stat,
+        ta.task_progress,
+        ta.is_train,
+        ta.train_url,
+        ta.is_train,
+        ta.train_console,
+        ta.pid,
+        ta.assess_url,
+        ta.train_type,
+        ta.is_assess,
+        ta.record_type,
+        ta.create_time,
+        ta.update_time,
+        CONCAT(fa.group_name,'/ v',so.version) as groupVName
+        from
+        qczy_algorithm_task as ta
+        left join qczy_data_son as so on so.son_id = ta.data_set_id
+        left join qczy_data_father as fa on so.father_id = fa.group_id
+        <where>
+            <if test="req.taskInputName!=null and req.taskInputName!=''">
+                ta.task_input_name like concat('%', #{req.taskInputName}, '%')
+            </if>
+            <if test="req.modelId!=null and req.modelId!=''">
+                ta.model_id = #{req.modelId}
+            </if>
+            <if test="req.taskId!=null and req.taskId!=''">
+                and ta.taskId = #{req.taskId}
+            </if>
+            <if test="req.isTrain!=null and req.isTrain!=''">
+                and ta.is_train = #{req.isTrain}
+            </if>
+            <if test="req.taskTimeStart != null and req.taskTimeStart != ''">
+                and ta.create_time >= #{req.taskTimeStart}
+            </if>
+
+            <if test="req.taskTimeEnd != null and req.taskTimeEnd != ''">
+                and ta.create_time &lt;= #{req.taskTimeEnd}
+            </if>
+            <if test="req.recordType != null and req.recordType != ''">
+                and ta.record_type = #{req.recordType}
+            </if>
+
+        </where>
+        order by ta.task_id desc,ta.create_time desc
+    </select>
+</mapper>

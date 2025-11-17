@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.qczy.mapper.ManyFileMapper">
+
+    <insert id="insertBatch">
+        INSERT INTO qczy_many_file (task_id, user_id, file_id, is_approve)
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+            (#{item.taskId}, #{item.userId}, #{item.fileId}, #{item.isApprove})
+        </foreach>
+    </insert>
+
+
+    <update id="updateBatchByIds">
+        UPDATE qczy_many_file
+        SET
+        task_id = CASE
+        <foreach collection="entities" item="entity">
+            WHEN id = #{entity.id} THEN #{entity.taskId}
+        </foreach>
+        END,
+        user_id = CASE
+        <foreach collection="entities" item="entity">
+            WHEN id = #{entity.id} THEN #{entity.userId}
+        </foreach>
+        END,
+        audit_user_id = CASE
+        <foreach collection="entities" item="entity">
+            WHEN id = #{entity.id} THEN #{entity.auditUserId}
+        </foreach>
+        END,
+        file_id = CASE
+        <foreach collection="entities" item="entity">
+            WHEN id = #{entity.id} THEN #{entity.fileId}
+        </foreach>
+        END,
+        is_approve = CASE
+        <foreach collection="entities" item="entity">
+            WHEN id = #{entity.id} THEN #{entity.isApprove}
+        </foreach>
+        END,
+        not_pass_message = CASE
+        <foreach collection="entities" item="entity">
+            WHEN id = #{entity.id} THEN #{entity.notPassMessage}
+        </foreach>
+        END
+        WHERE id IN
+        <foreach collection="entities" item="entity" open="(" separator="," close=")">
+            #{entity.id}
+        </foreach>
+    </update>
+
+    <select id="selectBatchByTaskAndFileIds" resultType="com.qczy.model.entity.ManyFileEntity">
+        SELECT *
+        FROM qczy_many_file
+        WHERE task_id = #{taskId}
+        AND file_id IN
+        <foreach collection="fileIds" item="fileId" open="(" separator="," close=")">
+            #{fileId}
+        </foreach>
+        AND user_id = #{userId}
+    </select>
+</mapper>

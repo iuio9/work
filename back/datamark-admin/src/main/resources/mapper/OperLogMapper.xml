@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.qczy.mapper.OperLogMapper">
+
+
+
+    <select id="selectOperLogList" resultType="com.qczy.model.entity.OperLogEntity" parameterType="com.qczy.model.request.OperLogRequest">
+        select * from qczy_oper_log
+        <where>
+            <if test="req.title != null and req.title  != ''">
+                and title like concat('%', #{req.title}, '%')
+            </if>
+
+            <if test="req.operName != null and req.operName  != ''">
+                and oper_name like concat('%', #{req.operName}, '%')
+            </if>
+
+            <if test="req.businessType != null ">
+                and business_type =#{req.businessType}
+            </if>
+
+            <if test="req.status != null ">
+                and `status` =#{req.status}
+            </if>
+
+            <if test="req.operTimeStart != null and req.operTimeStart != ''">
+                and oper_time >= #{req.operTimeStart}
+            </if>
+
+            <if test="req.operTimeEnd != null and req.operTimeEnd != ''">
+                and oper_time &lt;= #{req.operTimeEnd}
+            </if>
+        </where>
+        order by oper_time desc
+    </select>
+
+
+
+</mapper>

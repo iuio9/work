@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.qczy.mapper.DataImportLogMapper">
+
+
+    <select id="selectImportList" resultType="com.qczy.model.response.DataImportLogResponse">
+        SELECT
+            lo.id AS id,
+            lo.file_size AS fileSize,
+            LENGTH( lo.file_ids ) - LENGTH(
+                    REPLACE ( lo.file_ids, ',', '' )) + 1 AS count,
+            us.nick_name AS nickName,
+            lo.import_start_time AS importStartTime,
+            lo.import_end_time AS importEndTime,
+            lo.status
+        FROM
+            qczy_data_import_log AS lo
+                LEFT JOIN qczy_user AS us ON lo.user_id = us.id
+        WHERE
+            lo.son_id = #{sonId}
+        ORDER BY
+            lo.create_time DESC
+
+    </select>
+    <select id="selectImportFileList" resultType="com.qczy.model.response.FileDetailsResponse">
+        SELECT id,fd_name,fd_size ,
+               concat('成功')  as status
+               from qczy_file where id in (${fileIds})
+    </select>
+</mapper>

@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.qczy.mapper.ManyAuditMapper">
+
+    <select id="examineDetails" resultType="com.qczy.model.response.ManyAuditDetailsResponse">
+        SELECT
+            au.id AS id,
+            ( SELECT us.id FROM qczy_user AS us WHERE us.id = au.mark_user_id ) AS userId,
+            ( SELECT us.nick_name FROM qczy_user AS us WHERE us.id = au.mark_user_id ) AS markName,
+            ( SELECT us.nick_name FROM qczy_user AS us WHERE us.id = au.user_id ) AS auditName,
+            CONCAT( au.yes_examine, '/', au.no_examine ) AS auditNum,
+            CONCAT( au.progress, '%' ) AS progress,
+            CASE
+                au.audit_state
+                WHEN 1 THEN
+                    '待审核'
+                WHEN 2 THEN
+                    '审核中'
+                WHEN 3 THEN
+                    '已完成'
+                WHEN 4 THEN
+                    '已提交'
+                WHEN 5 THEN
+                    '已驳回'
+                WHEN 6 THEN
+                    '审核结束'
+                WHEN 7 THEN
+                    '待审核'
+                WHEN 8 THEN
+                    '返回审核'
+                WHEN 9 THEN
+                    '已提交'
+                END AS auditState,
+            au.create_time AS createTime,
+            IF(au.audit_state in (4), 0, 1) as isHide
+        FROM
+            qczy_many_audit au
+        WHERE
+            au.many_mark_id = #{taskId}
+        order by au.create_time DESC
+    </select>
+
+    <select id="myExamineTaskList" resultType="com.qczy.model.response.ManyReceiveListResponse">
+        SELECT
+            au.id AS id,
+            mm.id AS taskId,
+            au.son_id AS sonId,
+            mm.task_name AS taskName,
+            CONCAT( au.yes_examine, '/', au.no_examine ) AS auditNum,
+            CONCAT( au.progress, '%' ) AS progress,
+            ( SELECT us.nick_name FROM qczy_user AS us WHERE us.id = au.mark_user_id ) AS markName,
+            us.nick_name AS creator,
+            CASE
+                au.audit_state
+                WHEN 1 THEN
+                    '待审核'
+                WHEN 2 THEN
+                    '审核中'
+                WHEN 3 THEN
+                    '审核完成'
+                WHEN 4 THEN
+                    '已提交'
+                WHEN 5 THEN
+                    '已驳回'
+                WHEN 6 THEN
+                    '审核结束'
+                WHEN 7 THEN
+                    '待审核'
+                WHEN 8 THEN
+                    '返回审核'
+                WHEN 9 THEN
+                    '已提交'
+                END AS markState,
+            au.create_time AS createTime,
+            IF(au.audit_state in (4,5,7,9), 1, 0) as isHide
+        FROM
+            qczy_many_audit AS au
+                LEFT JOIN qczy_many_mark AS mm ON au.many_mark_id = mm.id
+                LEFT JOIN qczy_user AS us ON mm.user_id = us.id
+        WHERE
+            au.user_id = #{userId}
+        order by au.create_time DESC
+    </select>
+
+    <select id="examineTeamInfo" resultType="com.qczy.model.response.ExamineTeamInfoResponse">
+        SELECT
+            mm.task_name AS taskName,
+            mm.son_id AS sonId,
+            (
+                SELECT
+                    IFNULL(
+                            SUM(
+                                    CASE
+
+                                        WHEN ma.assign_file_ids IS NULL
+                                            OR ma.assign_file_ids = '' THEN
+                                            LENGTH( ma.assign_file_ids ) - LENGTH(
+                                                    REPLACE ( ma.assign_file_ids, ',', '' )) ELSE LENGTH( ma.assign_file_ids ) - LENGTH(
+                                            REPLACE ( ma.assign_file_ids, ',', '' )) + 1
+                                        END
+                            ),
+                            0
+                    )
+                FROM
+                    qczy_many_assign AS ma
+                WHERE
+                    ma.many_mark_id = mm.id
+                  AND ma.is_lose = 0
+            ) AS fileNumber,
+            t1.team_name AS markTeamName,
+            ( SELECT count( 1 ) FROM qczy_team_user WHERE team_id = t1.id ) AS markTeamNumber,
+            t2.team_name AS auditTeamName,
+            ( SELECT count( 1 ) FROM qczy_team_user WHERE team_id = t2.id ) AS auditTeamNumber
+        FROM
+            qczy_many_mark AS mm
+                LEFT JOIN qczy_team AS t1 ON t1.id = mm.team_id
+                LEFT JOIN qczy_team AS t2 ON t2.id = mm.audit_team_id
+        WHERE
+            mm.id = #{id}
+    </select>
+
+    <select id="selectManyAuditByIds" resultType="com.qczy.model.entity.ManyAuditEntity" parameterType="java.util.List">
+        select * from qczy_many_audit where id in
+        <foreach item="item" index="index" collection="list"
+                 open="(" separator="," close=")">
+            #{item}
+        </foreach>
+        order by id
+    </select>
+
+
+    <update id="batchUpdateManyAuditEntities" parameterType="java.util.List">
+        UPDATE qczy_many_audit
+        SET
+        audit_state = CASE
+        <foreach collection="list" item="item" separator=" ">
+            WHEN id = #{item.id} THEN #{item.auditState}
+        </foreach>
+        END,
+        yes_examine = CASE
+        <foreach collection="list" item="item" separator=" ">
+            WHEN id = #{item.id} THEN #{item.yesExamine}
+        </foreach>
+        END,
+        no_examine = CASE
+        <foreach collection="list" item="item" separator=" ">
+            WHEN id = #{item.id} THEN #{item.noExamine}
+        </foreach>
+        END,
+        progress = CASE
+        <foreach collection="list" item="item" separator=" ">
+            WHEN id = #{item.id} THEN #{item.progress}
+        </foreach>
+        END,
+        is_lose = CASE
+        <foreach collection="list" item="item" separator=" ">
+            WHEN id = #{item.id} THEN #{item.isLose}
+        </foreach>
+        END,
+        is_submit = CASE
+        <foreach collection="list" item="item" separator=" ">
+            WHEN id = #{item.id} THEN #{item.isSubmit}
+        </foreach>
+        END
+        WHERE
+        <foreach collection="list" item="item" open="id IN (" close=")" separator=",">
+            #{item.id}
+        </foreach>
+    </update>
+
+
+
+</mapper>

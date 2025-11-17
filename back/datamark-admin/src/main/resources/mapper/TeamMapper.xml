@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.qczy.mapper.TeamMapper">
+
+
+    <sql id="selectTeamVo">
+        select id, team_name, team_dec, creator, create_time, update_time
+        from qczy_team
+    </sql>
+
+
+    <select id="selectTeamList" resultType="com.qczy.model.entity.TeamEntity"
+            parameterType="com.qczy.model.entity.TeamEntity">
+        SELECT
+        te.id,
+        te.team_name,
+        te.team_dec,
+        te.creator,
+        te.create_time,
+        te.update_time,
+        te.team_type,
+        ( SELECT count(*) FROM qczy_team_user AS us WHERE us.team_id = te.id ) AS teamCount
+        FROM
+        qczy_team AS te
+        <where>
+            <if test="req.teamName != null  and req.teamName != ''">
+                and te.team_name like concat('%', #{req.teamName}, '%')
+            </if>
+        </where>
+    </select>
+
+    <select id="getByTaskIdTeamList" resultType="com.qczy.model.response.TeamUserResponse">
+        SELECT
+            ms.id AS id,
+            us.id AS userId,
+            us.nick_name AS nickName
+        FROM
+            qczy_many_mark AS ma
+                LEFT JOIN qczy_many_assign AS ms ON ma.id = ms.many_mark_id
+                LEFT JOIN qczy_user AS us ON ms.user_id = us.id
+        WHERE
+            ma.id = #{taskId}
+        AND
+            ms.is_lose = 0
+    </select>
+    <select id="getByTaskIdTeamList1" resultType="com.qczy.model.response.TeamUserResponse">
+        <!-- SELECT
+            us.id AS userId,
+            us.nick_name AS nickName
+        FROM
+            qczy_many_mark AS ma
+                LEFT JOIN qczy_team AS te ON ma.audit_team_id = te.id
+                LEFT JOIN qczy_team_user AS tu ON te.id = tu.team_id
+                LEFT JOIN qczy_user AS us ON tu.user_id = us.id
+        WHERE
+            ma.id = #{taskId}  -->
+
+        SELECT
+        DISTINCT
+        us.id AS userId,
+        us.nick_name AS nickName
+        FROM
+        qczy_many_mark AS ma
+        LEFT JOIN qczy_many_audit AS ms ON ma.id = ms.many_mark_id
+        LEFT JOIN qczy_user AS us ON ms.user_id = us.id
+        WHERE
+        ma.id = #{taskId}
+
+    </select>
+
+    <delete id="deleteTeamGroupByIds" parameterType="int">
+        delete from qczy_team where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+</mapper>

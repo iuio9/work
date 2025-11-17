@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.qczy.mapper.ManyAssignMapper">
+
+    <select id="viewProgress" resultType="com.qczy.model.response.ViewProgressResponse">
+        SELECT ma.id                                   as id,
+               us.nick_name                            as nickName,
+               CONCAT(ma.yes_mark, '/', ma.no_mark)    as markNum,
+               CONCAT(ma.progress, '%')                as progress,
+               CASE
+                   ma.user_state
+                   WHEN 1 THEN
+                       '待标注'
+                   WHEN 2 THEN
+                       '标注中'
+                   WHEN 3 THEN
+                       '已完成'
+                   WHEN 4 THEN
+                       '已结束'
+                   WHEN 5 THEN
+                       '转交'
+                   WHEN 6 THEN
+                       '验收打回'
+                   WHEN 7 THEN
+                       '已提交'
+                   END                                 AS markState,
+               ma.create_time                          as createTime,
+               ma.user_id                              as userId,
+               IF(ma.user_state in (4, 5, 6, 7), 1, 0) as isHide
+        FROM qczy_many_assign AS ma
+                 LEFT JOIN qczy_user as us on ma.user_id = us.id
+        WHERE ma.many_mark_id = #{id}
+        <!-- order by FIELD(ma.user_state, 2,1,7,3,6,5,4) , ma.create_time DESC  -->
+        order by ma.create_time DESC
+
+    </select>
+
+       <select id="getMyReceiveList" resultType="com.qczy.model.response.ManyReceiveListResponse">
+           SELECT ms.id                                   AS id,
+                  ma.task_name                            AS taskName,
+                  CONCAT(ms.progress, '%')                AS progress,
+                  us.nick_name                            AS creator,
+                  ma.id                                   AS taskId,
+                  ma.son_id                               AS sonId,
+                  CASE
+                      ms.user_state
+                      WHEN 1 THEN
+                          '待标注'
+                      WHEN 2 THEN
+                          '标注中'
+                      WHEN 3 THEN
+                          '已完成'
+                      WHEN 4 THEN
+                          '已结束'
+                      WHEN 5 THEN
+                          '转交'
+                      WHEN 6 THEN
+                          '验收打回'
+                      WHEN 7 THEN
+                          '已提交'
+                      END                                 AS markState,
+                  ms.create_time                          AS createTime,
+                  IF(ms.user_state in (4, 5, 6, 7), 1, 0) as isHide
+           FROM qczy_many_assign AS ms
+                    LEFT JOIN qczy_many_mark AS ma ON ms.many_mark_id = ma.id
+                    LEFT JOIN qczy_user AS us ON ma.user_id = us.id
+           WHERE ms.user_id = #{userId}
+           <!-- ORDER BY FIELD(ms.user_state, 2,1,7,3,6,5,4) , ms.create_time DESC -->
+           order by ms.create_time DESC
+       </select>
+
+    <!-- ManyAssignMapper.xml -->
+    <insert id="insertBatch">
+        INSERT INTO qczy_many_assign (many_mark_id, son_id, assign_file_ids, user_id, no_mark, yes_mark, progress, user_state, create_time, is_lose, is_submit)
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+            (#{item.manyMarkId}, #{item.sonId}, #{item.assignFileIds}, #{item.userId}, #{item.noMark}, #{item.yesMark}, #{item.progress}, #{item.userState}, #{item.createTime}, #{item.isLose}, #{item.isSubmit})
+        </foreach>
+    </insert>
+   </mapper>

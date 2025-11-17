@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.qczy.mapper.DataSonMapper">
+    <!--
+
+       /*  SELECT so.son_id                                                                   AS sonId,
+               IF
+               (
+                       so.file_ids = Null
+                           OR so.file_ids = '',
+                       0,
+                       LENGTH(so.file_ids) - LENGTH(
+                               REPLACE(so.file_ids, ',', '')) + 1
+               )                                                                           AS count,
+               so.version                                                                  AS version,
+               (SELECT da.dict_label FROM qczy_dict_data AS da WHERE da.id = so.mark_type) AS markType,
+               (SELECT da.dict_label FROM qczy_dict_data AS da WHERE da.id = so.mark_temp) AS markTemp,
+               (SELECT da.dict_label FROM qczy_dict_data AS da WHERE da.id = so.mark_temp) AS markTemp,
+               IF
+               ((SELECT im.`status`
+                 FROM qczy_data_import_log AS im
+                 WHERE im.son_id = so.son_id
+                 ORDER BY im.import_start_time DESC
+                 LIMIT 1) > 0,
+                (SELECT im.`status`
+                 FROM qczy_data_import_log AS im
+                 WHERE im.son_id = so.son_id
+                 ORDER BY im.import_start_time DESC
+                 LIMIT 1),
+                0
+               )                                                                           AS importStatus,
+               so.status                                                                   AS status,
+               so.create_time                                                              AS createTime,
+               so.file_ids                                                                 AS fileIds,
+               so.remark
+        FROM qczy_data_son AS so
+                 LEFT JOIN qczy_user AS us ON so.user_id = us.id
+        WHERE so.father_id = #{groupId}
+          AND us.dept_ids IN (${deptIds})
+        ORDER BY so.version DESC*/
+
+
+    -->
+
+    <select id="selectDataSonByFatherId" resultType="com.qczy.model.response.DataSonResponse">
+
+        SELECT so.son_id                                                                      AS sonId,
+               so.version                                                                     AS version,
+               IF(
+                       LENGTH(so.file_ids) > 0,
+                       LENGTH(so.file_ids) - LENGTH(
+                               REPLACE(so.file_ids, ',', '')) + 1,
+                       0
+               )                                                                              AS count,
+               IFNULL((SELECT im.`status`
+                       FROM qczy_data_import_log AS im
+                       WHERE im.son_id = so.son_id
+                       ORDER BY im.import_start_time DESC
+                       LIMIT 1), 0)                                                           AS importStatus,
+               (SELECT da.dict_label FROM qczy_dict_data AS da WHERE da.id = fa.data_type_id) AS dataTypeName,
+               so.STATUS                                                                      AS STATUS,
+               so.create_time                                                                 AS createTime,
+               so.file_ids                                                                    AS fileIds,
+               so.remark,
+               so.is_many                                                                     AS isMany,
+               so.ano_type                                                                    AS anoType,
+               so.is_socket                                                                   AS isSocket,
+               so.tag_selection_mode                                                          AS tagSelectionMode
+        FROM qczy_data_son AS so
+                 LEFT JOIN qczy_user AS us ON so.user_id = us.id
+                 LEFT JOIN qczy_data_father AS fa ON so.father_id = fa.group_id
+        WHERE so.father_id = #{groupId}
+        ORDER BY so.version DESC
+    </select>
+
+
+    <select id="getDataSetMarkList" resultType="com.qczy.model.response.DataMarkResponse">
+        <!--   SELECT fa.group_name AS groupName,
+           CONCAT('v', so.version) AS version,
+           (SELECT da.dict_label FROM qczy_dict_data AS da WHERE da.id = so.mark_type) AS markType,
+           (SELECT da.dict_label FROM qczy_dict_data AS da WHERE da.id = so.mark_temp) AS markTemp,
+           IF
+           (
+           so.file_ids = Null
+           OR so.file_ids = '',
+           0,
+           LENGTH(so.file_ids) - LENGTH(
+           REPLACE(so.file_ids, ',', '')) + 1
+           ) AS count,
+           so.son_id AS sonId,
+           so.status AS status,
+           so.create_time AS createTime
+           FROM qczy_data_father AS fa
+           LEFT JOIN qczy_data_son AS so ON fa.group_id = so.father_id
+           LEFT JOIN qczy_user AS us ON so.user_id = us.id
+           <where>
+               <if test="req.groupName != null  and req.groupName != ''">
+                   and fa.group_name like concat('%', #{req.groupName}, '%')
+               </if>
+               and us.dept_ids IN (${deptIds})
+           </where>
+           ORDER BY so.create_time DESC-->
+
+
+        SELECT
+        fa.group_name AS groupName,
+        CONCAT( 'v', so.version ) AS version,
+        IF (
+        LENGTH( so.file_ids )> 0,
+        LENGTH( so.file_ids ) - LENGTH(
+        REPLACE ( so.file_ids, ',', '' )) + 1,
+        0
+        ) AS count,
+        fa.data_type_id as dataTypeId,
+        so.son_id AS sonId,
+        so.STATUS AS STATUS,
+        so.create_time AS createTime,
+        so.is_many AS isMany,
+        so.ano_type AS anoType
+        FROM qczy_data_father AS fa
+        LEFT JOIN qczy_data_son AS so ON fa.group_id = so.father_id
+        LEFT JOIN qczy_user AS us ON so.user_id = us.id
+        <where>
+            <if test="req.groupName != null  and req.groupName != ''">
+                and fa.group_name like concat('%', #{req.groupName}, '%')
+            </if>
+            <if test="req.dataTypeId!=null and req.dataTypeId!=''">
+                and fa.data_type_id = #{req.dataTypeId}
+            </if>
+        </where>
+        ORDER BY so.create_time DESC
+    </select>
+
+    <!-- 查询当前节点自身的文件数量（不包含子节点） -->
+    <select id="countCurrentNodeFiles" parameterType="java.lang.Long" resultType="java.lang.Long">
+        SELECT
+            SUM(
+                    CASE
+                        WHEN LENGTH(so.file_ids) > 0
+                            THEN LENGTH(so.file_ids) - LENGTH(REPLACE(so.file_ids, ',', '')) + 1
+                        ELSE 0
+                        END
+            ) AS total_file_count
+        FROM
+            qczy_data_father AS fa
+                JOIN qczy_data_son AS so ON fa.group_id = so.father_id
+        WHERE
+            fa.data_type_id = #{id};
+     </select>
+
+
+    <delete id="deleteDataSonByIds" parameterType="java.util.List">
+        delete from qczy_data_son where id in
+        <foreach item="id" collection="list" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+</mapper>

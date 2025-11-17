@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.qczy.mapper.LabelMapper">
+
+    <resultMap type="com.qczy.model.entity.LabelEntity" id="LabelResult">
+        <result property="id"    column="id"    />
+        <result property="onlyId"    column="only_id"    />
+        <result property="labelGroupId"    column="label_group_id"    />
+        <result property="labelName"    column="label_name"    />
+        <result property="labelName"    column="label_name"    />
+        <result property="labelColor"    column="label_color"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateTime"    column="update_time"    />
+    </resultMap>
+
+    <sql id="selectLabelVo">
+        select id,only_id, label_group_id, label_name, english_label_name,label_sort,label_color,create_time, update_time from qczy_label
+    </sql>
+
+    <select id="selectLabelList" parameterType="com.qczy.model.entity.LabelEntity" resultMap="LabelResult">
+        <include refid="selectLabelVo"/>
+        <where>
+            <if test="req.labelName != null  and req.labelName != ''">
+                and label_name like concat('%', #{req.belName}, '%')
+            </if>
+            and label_group_id = #{labelGroupId}
+        </where>
+        order by label_sort desc
+    </select>
+
+    <select id="selectLabelById" parameterType="Integer" resultMap="LabelResult">
+        <include refid="selectLabelVo"/>
+        where id = #{id}
+    </select>
+
+    <insert id="insertLabel" parameterType="com.qczy.model.entity.LabelEntity" useGeneratedKeys="true" keyProperty="id">
+        insert into qczy_label
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="onlyId != null">only_id,</if>
+            <if test="labelGroupId != null">label_group_id,</if>
+            <if test="labelName != null">label_name,</if>
+            <if test="englishLabelName != null">english_label_name,</if>
+            <if test="labelSort != null">label_sort,</if>
+            <if test="labelColor != null">label_color,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateTime != null">update_time,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="onlyId != null">#{onlyId},</if>
+            <if test="labelGroupId != null">#{labelGroupId},</if>
+            <if test="labelName != null">#{labelName},</if>
+            <if test="englishLabelName != null">#{englishLabelName},</if>
+            <if test="labelSort != null">#{labelSort},</if>
+            <if test="labelColor != null">#{labelColor},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+        </trim>
+    </insert>
+
+    <update id="updateLabel" parameterType="com.qczy.model.entity.LabelEntity">
+        update qczy_label
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="onlyId != null">only_id = #{onlyId},</if>
+            <if test="labelGroupId != null">label_group_id = #{labelGroupId},</if>
+            <if test="labelName != null">label_name = #{labelName},</if>
+            <if test="englishLabelName != null">english_label_name = #{englishLabelName},</if>
+            <if test="labelSort != null">label_sort = #{labelSort},</if>
+            <if test="labelColor != null">label_color = #{labelColor},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteLabelById" parameterType="Integer">
+        delete from qczy_label where id = #{id}
+    </delete>
+
+    <delete id="deleteLabelByIds" parameterType="int">
+        delete from qczy_label where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+
+
+
+    <select id="selectDataSetLabel" resultType="com.qczy.model.response.DataSetLabelResponse">
+        SELECT la.id                 AS labelId,
+               la.only_id            AS onlyId,
+               IF
+               (
+                       la.label_group_id != 0 AND la.label_group_id != '',
+                       CONCAT((SELECT label_group_name FROM qczy_label_group WHERE id = la.label_group_id), '-',
+                              la.label_name),
+                       la.label_name
+               )                     AS labelName,
+               la.english_label_name as englishLabelName,
+               la.label_name         AS twoLabelName,
+               la.label_group_id     AS labelGroupId,
+               la.label_color        AS labelColor,
+               sl.label_count        AS labelCount,
+               la.label_sort         AS labelSort
+        FROM qczy_label AS la
+                 LEFT JOIN qczy_data_son_label AS sl ON la.id = sl.label_id
+        WHERE son_id = #{sonId}
+        ORDER BY la.label_sort DESC
+    </select>
+
+
+    <!-- 新增的 selectByIds 批量查询方法 -->
+    <select id="selectByIds" resultType="com.qczy.model.entity.LabelEntity">
+        SELECT
+        la.id,
+        la.only_id,
+        la.label_group_id,
+        CASE
+        WHEN la.label_group_id IS NULL THEN
+        la.label_name ELSE CONCAT_WS( '-', gr.label_group_name, la.label_name )
+        END AS label_name,
+        la.label_color,
+        la.english_label_name
+        FROM
+        qczy_label AS la
+        LEFT JOIN qczy_label_group AS gr ON la.label_group_id = gr.id
+        WHERE
+        la.id IN
+        <foreach collection="list" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </select>
+
+    <select id="selectListAll" resultType="com.qczy.model.entity.LabelEntity">
+        SELECT *
+        FROM qczy_label
+        WHERE id IN
+        <foreach collection="list" item="labelId" open="(" separator="," close=")">
+            #{labelId}
+        </foreach>
+    </select>
+
+
+    <!-- 批量修改映射语句... -->
+    <update id="updateBatchById">
+        UPDATE qczy_label
+        SET
+        only_id = CASE
+        <foreach collection="list" item="item">
+            WHEN id = #{item.id} THEN #{item.onlyId}
+        </foreach>
+        END,
+        english_label_name = CASE
+        <foreach collection="list" item="item">
+            WHEN id = #{item.id} THEN #{item.englishLabelName}
+        </foreach>
+        END
+        WHERE id IN
+        <foreach collection="list" item="item" open="(" separator="," close=")">
+            #{item.id}
+        </foreach>
+    </update>
+</mapper>

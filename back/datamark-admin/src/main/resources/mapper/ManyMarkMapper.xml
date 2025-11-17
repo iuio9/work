@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.qczy.mapper.ManyMarkMapper">
+
+
+    <select id="getMyCreateTaskList" resultType="com.qczy.model.response.ManyCreateListResponse">
+        SELECT
+            mm.id AS id,
+            mm.task_name AS taskName,
+            mm.son_id AS sonId,
+            te.team_name AS teamName,
+            CONCAT( fa.group_name, '/v', so.version ) AS sonName,
+            CASE
+                so.ano_type
+                WHEN 0 THEN
+                    '图像分割'
+                WHEN 1 THEN
+                    '物体检测'
+                END AS anoType,
+            mm.task_state AS taskState,
+            mm.create_time AS createTime,
+            IF ( mm.task_state = 5, 1, 0 ) AS endStatus,
+            ( SELECT count(*) FROM qczy_many_assign AS ma WHERE ma.many_mark_id = mm.id AND ma.is_lose = 0) AS userNum,
+            (
+                SELECT
+                    IFNULL(
+                            SUM(
+                                    CASE
+                                        WHEN ma.assign_file_ids IS NULL OR ma.assign_file_ids = ''
+                                            THEN LENGTH( ma.assign_file_ids ) - LENGTH( REPLACE ( ma.assign_file_ids, ',', '' ))
+                                        ELSE LENGTH( ma.assign_file_ids ) - LENGTH( REPLACE ( ma.assign_file_ids, ',', '' )) + 1
+                                        END
+                            ),
+                            0)
+                FROM
+                    qczy_many_assign AS ma
+                WHERE
+                    ma.many_mark_id = mm.id
+                AND ma.is_lose = 0
+            ) AS fileNum
+        FROM
+            qczy_many_mark AS mm
+                LEFT JOIN qczy_data_son AS so ON mm.son_id = so.son_id
+                LEFT JOIN qczy_data_father AS fa ON so.father_id = fa.group_id
+                LEFT JOIN qczy_team AS te on mm.team_id = te.id
+        WHERE
+            mm.user_id = #{userId}
+        ORDER BY mm.create_time desc
+
+    </select>
+
+</mapper>

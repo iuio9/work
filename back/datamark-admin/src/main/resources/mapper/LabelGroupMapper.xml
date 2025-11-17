@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.qczy.mapper.LabelGroupMapper">
+
+    <resultMap type="com.qczy.model.entity.LabelGroupEntity" id="LabelGroupResult">
+        <result property="id"    column="id"    />
+        <result property="labelGroupName"    column="label_group_name"    />
+        <result property="englishLabelGroupName"    column="english_label_group_name"    />
+        <result property="labelGroupDesc"    column="label_group_desc"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateTime"    column="update_time"    />
+    </resultMap>
+
+    <sql id="selectLabelGroupVo">
+        select id, label_group_name, english_label_group_name, label_group_desc, create_time, update_time
+        from qczy_label_group
+    </sql>
+
+    <select id="selectLabelGroupList" parameterType="com.qczy.model.entity.LabelGroupEntity" resultMap="LabelGroupResult">
+        <include refid="selectLabelGroupVo"/>
+        <where>
+            <if test="req.labelGroupName != null  and req.labelGroupName != ''">
+                and label_group_name like concat('%', #{req.labelGroupName}, '%')
+            </if>
+        </where>
+        order by create_time desc
+    </select>
+
+    <select id="selectLabelGroupById" parameterType="Integer" resultMap="LabelGroupResult">
+        <include refid="selectLabelGroupVo"/>
+        where id = #{id}
+    </select>
+    <select id="selectGroupLabelPage" resultType="com.qczy.model.response.GroupLabelResponse">
+        SELECT
+            gr.id AS id,
+            gr.label_group_name AS label,
+            ( SELECT count( 1 ) FROM qczy_label WHERE label_group_id = gr.id ) as count
+        FROM
+            qczy_label_group AS gr
+        ORDER BY
+            gr.id DESC
+    </select>
+    <select id="selectDataSetLabelPage" resultType="com.qczy.model.response.DataSetLabelResponse">
+        SELECT la.id             AS labelId,
+               la.only_id        AS onlyId,
+               IF
+               (
+                       la.label_group_id != 0 AND la.label_group_id != '',
+                       CONCAT((SELECT label_group_name FROM qczy_label_group WHERE id = la.label_group_id), '-',
+                              la.label_name),
+                       la.label_name
+               )                 AS labelName,
+               la.label_group_id AS labelGroupId,
+               la.label_color    AS labelColor,
+               sl.label_count    AS labelCount,
+               la.label_sort     AS labelSort
+        FROM qczy_label AS la
+                 LEFT JOIN qczy_data_son_label AS sl ON la.id = sl.label_id
+        <where>
+            <if test="labelName != null and  labelName != ''">
+                and la.label_name like concat('%', #{labelName}, '%')
+            </if>
+            and son_id = #{sonId}
+        </where>
+        ORDER BY la.label_sort DESC
+    </select>
+
+    <insert id="insertLabelGroup" parameterType="com.qczy.model.entity.LabelGroupEntity" useGeneratedKeys="true" keyProperty="id">
+        insert into qczy_label_group
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="labelGroupName != null">label_group_name,</if>
+            <if test="englishLabelGroupName != null">english_label_group_name,</if>
+            <if test="labelGroupDesc != null">label_group_desc,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateTime != null">update_time,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="labelGroupName != null">#{labelGroupName},</if>
+            <if test="englishLabelGroupName != null">#{englishLabelGroupName},</if>
+            <if test="labelGroupDesc != null">#{labelGroupDesc},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+        </trim>
+    </insert>
+
+    <update id="updateLabelGroup" parameterType="com.qczy.model.entity.LabelGroupEntity">
+        update qczy_label_group
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="labelGroupName != null">label_group_name = #{labelGroupName},</if>
+            <if test="englishLabelGroupName != null">english_label_group_name = #{englishLabelGroupName},</if>
+            <if test="labelGroupDesc != null">label_group_desc = #{labelGroupDesc},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteLabelGroupById" parameterType="Integer">
+        delete from qczy_label_group where id = #{id}
+    </delete>
+
+    <delete id="deleteLabelGroupByIds" parameterType="int">
+        delete from qczy_label_group where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+</mapper>

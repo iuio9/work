@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.qczy.mapper.DataSonLabelMapper">
+
+    <select id="selectBySonIdAndLabelNameCount" resultType="java.lang.Integer">
+        SELECT
+            count(1)
+        FROM
+            qczy_data_son_label AS sl
+                LEFT JOIN qczy_label AS la ON sl.label_id = la.id
+        WHERE
+            son_id = #{sonId}
+          and
+            la.label_name = #{labelName}
+    </select>
+
+    <insert id="insertBatch">
+        INSERT INTO qczy_data_son_label (son_id, label_id)
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+            (#{item.sonId}, #{item.labelId})
+        </foreach>
+    </insert>
+</mapper>

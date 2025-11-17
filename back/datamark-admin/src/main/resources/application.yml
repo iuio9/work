@@ -1,0 +1,8 @@
+spring:
+  profiles:
+#    active: zidonghuasuo2.0
+#    active: aliyun
+    active: test
+# 主配置文件，设置默认值
+swagger:
+  enabled: false  # 默认禁用，避免未指定环境时出错

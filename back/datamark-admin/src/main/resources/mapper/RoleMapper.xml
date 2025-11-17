@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.qczy.mapper.RoleMapper">
+
+    <resultMap type="com.qczy.model.entity.RoleEntity" id="QczyRoleResult">
+        <result property="id"    column="id"    />
+        <result property="roleName"    column="role_name"    />
+        <result property="roleCode"    column="role_code"    />
+        <result property="roleDesc"    column="role_desc"    />
+        <result property="status"    column="status"    />
+        <result property="mulStatus"    column="mul_status"    />
+        <result property="isAllowDeletion"    column="is_allow_deletion"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateTime"    column="update_time"    />
+        <result property="isDeleted"    column="is_deleted"    />
+    </resultMap>
+
+    <sql id="selectRoleVo">
+        select id, role_name, role_code, role_desc, status,mul_status, is_allow_deletion,create_time, update_time, is_deleted from qczy_role
+    </sql>
+
+    <select id="selectRoleList" parameterType="com.qczy.model.entity.RoleEntity" resultMap="QczyRoleResult">
+        <include refid="selectRoleVo"/>
+        <where>
+            <if test="req.roleName != null  and req.roleName != ''">
+             and role_name like concat('%', #{req.roleName}, '%')</if>
+            <if test="req.roleCode != null  and req.roleCode != ''"> and role_code = #{req.roleCode}</if>
+            <if test="req.status != null "> and status = #{req.status}</if>
+            and is_deleted = 0
+        </where>
+    </select>
+
+    <select id="selectRoleById" parameterType="Integer" resultMap="QczyRoleResult">
+        <include refid="selectRoleVo"/>
+        where id = #{id}
+    </select>
+
+    <insert id="insertRole" parameterType="com.qczy.model.entity.RoleEntity" useGeneratedKeys="true" keyProperty="id">
+        insert into qczy_role
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="roleName != null">role_name,</if>
+            <if test="roleCode != null">role_code,</if>
+            <if test="roleDesc != null">role_desc,</if>
+            <if test="status != null">status,</if>
+            <if test="mulStatus != null">mul_status,</if>
+            <if test="isAllowDeletion != null">is_allow_deletion,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="isDeleted != null">is_deleted,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="roleName != null">#{roleName},</if>
+            <if test="roleCode != null">#{roleCode},</if>
+            <if test="roleDesc != null">#{roleDesc},</if>
+            <if test="status != null">#{status},</if>
+            <if test="mulStatus != null">#{mulStatus},</if>
+            <if test="isAllowDeletion != null">#{isAllowDeletion},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="isDeleted != null">#{isDeleted},</if>
+        </trim>
+    </insert>
+
+    <update id="updateRole" parameterType="com.qczy.model.entity.RoleEntity">
+        update qczy_role
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="roleName != null">role_name = #{roleName},</if>
+            <if test="roleCode != null">role_code = #{roleCode},</if>
+            <if test="roleDesc != null">role_desc = #{roleDesc},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="mulStatus != null">mul_status = #{mulStatus},</if>
+            <if test="isAllowDeletion != null">is_allow_deletion = #{isAllowDeletion},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="isDeleted != null">is_deleted = #{isDeleted},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteRoleById" parameterType="Integer">
+        delete from qczy_role where id = #{id}
+    </delete>
+
+    <delete id="deleteRoleByIds" parameterType="String">
+        delete from qczy_role where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+
+
+</mapper>

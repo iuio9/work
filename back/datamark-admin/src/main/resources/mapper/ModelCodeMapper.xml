@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.qczy.mapper.ModelCodeMapper">
+
+
+    <insert id="batchInsertModelCode" parameterType="java.util.List">
+        INSERT INTO qczy_model_code
+        (model_base_id, code, algorithm, chinese_info)
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+            (#{item.modelBaseId}, #{item.code}, #{item.algorithm}, #{item.chineseInfo})
+        </foreach>
+    </insert>
+    <select id="modelCodeList" resultType="com.qczy.model.entity.ModelCodeEntity">
+         select * from qczy_model_code where model_base_id = #{modelId}
+    </select>
+
+</mapper>

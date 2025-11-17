@@ -1,0 +1,34 @@
+package com.qczy;
+
+import com.qczy.utils.URLUtils;
+
+import java.io.UnsupportedEncodingException;
+import java.net.URL;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
+
+public class test1 {
+    public static void main(String[] args) throws UnsupportedEncodingException {
+        String test = "http://192.168.1.4/output_foggy/500kV%E5%AE%89%E8%94%A1%E4%B8%80%E7%BA%BF%230087%E5%A1%94-0086%E5%A1%94-%E9%97%B4%E9%9A%94%E6%A3%92%E5%A4%A7%E5%88%B0%E5%B0%8F%E5%8F%B3%E7%9B%B8%E7%AC%AC8%E4%B8%AA%E9%97%B4%E9%9A%94%E6%A3%92%E9%94%80%E9%92%89%E6%9C%AA%E6%89%93%E5%BC%802-DJI-2920_gradual.jpg";
+        String test1 = "http://192.168.1.4/output_foggy/500kV%25E5%25AE%2589%25E8%2594%25A1%25CE%2599%25E7%25BA%25BF%25230133%25E5%25A1%2594-%25E4%25B8%258A%25E7%259B%25B8%25E6%2582%25AC%25E5%259E%2582%25E7%25BB%259D%25E7%25BC%2598%25E5%25AD%2590%25E5%25AF%25BC%25E7%25BA%25BF%2523%25E4%25BE%25A7%25E6%258C%2582%25E7%2582%25B9%25E5%259D%2587%25E5%258E%258B%25E7%258E%25AF%25E5%2580%25BE%25E6%2596%259C-DJI-4735_gradual.jpg";
+
+
+
+        String decode = URLDecoder.decode(test, "UTF-8");
+        String decode1 = URLDecoder.decode(test1, "UTF-8");
+        String decode2 = URLDecoder.decode(decode1, "UTF-8");
+        System.out.println(decode);
+
+        System.out.println(decode1);
+        System.out.println(decode2);
+
+        System.out.println(URLEncoder.encode(decode2));
+
+        System.out.println();
+        System.out.println(URLUtils.encodeURL(URLDecoder.decode(decode1)));
+
+        System.out.println("http://192.168.1.4/output_foggy/"+ URLDecoder.decode("500kV%25E5%25AE%2589%25E8%2594%25A1%25CE%2599%25E7%25BA%25BF%25230133%25E5%25A1%2594-%25E4%25B8%258A%25E7%259B%25B8%25E6%2582%25AC%25E5%259E%2582%25E7%25BB%259D%25E7%25BC%2598%25E5%25AD%2590%25E5%25AF%25BC%25E7%25BA%25BF%2523%25E4%25BE%25A7%25E6%258C%2582%25E7%2582%25B9%25E5%259D%2587%25E5%258E%258B%25E7%258E%25AF%25E5%2580%25BE%25E6%2596%259C-DJI-4735_gradual.jpg"));
+        System.out.println(test1);
+
+    }
+}

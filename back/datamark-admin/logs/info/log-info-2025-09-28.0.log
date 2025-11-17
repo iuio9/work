@@ -1,0 +1,184 @@
+2025-09-28 15:58:20.766 [main] INFO  com.qczy.MyApplication - Starting MyApplication on LAPTOP-R3CBIEK9 with PID 20952 (F:\yuanma\back\datamark-admin\target\classes started by lenovo in F:\yuanma\back\datamark-admin)
+2025-09-28 15:58:20.768 [main] INFO  com.qczy.MyApplication - The following profiles are active: test
+2025-09-28 15:58:24.478 [main] INFO  o.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker - Bean 'asyncConfig' of type [com.qczy.config.AsyncConfig$$EnhancerBySpringCGLIB$$27be6da6] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2025-09-28 15:58:24.704 [main] INFO  o.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker - Bean 'org.springframework.transaction.annotation.ProxyTransactionManagementConfiguration' of type [org.springframework.transaction.annotation.ProxyTransactionManagementConfiguration] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2025-09-28 15:58:25.004 [main] INFO  o.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker - Bean 'org.springframework.security.config.annotation.configuration.ObjectPostProcessorConfiguration' of type [org.springframework.security.config.annotation.configuration.ObjectPostProcessorConfiguration] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2025-09-28 15:58:25.010 [main] INFO  o.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker - Bean 'objectPostProcessor' of type [org.springframework.security.config.annotation.configuration.AutowireBeanFactoryObjectPostProcessor] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2025-09-28 15:58:25.019 [main] INFO  o.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker - Bean 'org.springframework.security.access.expression.method.DefaultMethodSecurityExpressionHandler@3d37203b' of type [org.springframework.security.access.expression.method.DefaultMethodSecurityExpressionHandler] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2025-09-28 15:58:25.024 [main] INFO  o.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker - Bean 'org.springframework.security.config.annotation.method.configuration.GlobalMethodSecurityConfiguration' of type [org.springframework.security.config.annotation.method.configuration.GlobalMethodSecurityConfiguration] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2025-09-28 15:58:25.040 [main] INFO  o.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker - Bean 'methodSecurityMetadataSource' of type [org.springframework.security.access.method.DelegatingMethodSecurityMetadataSource] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2025-09-28 15:58:25.857 [main] INFO  o.s.boot.web.embedded.tomcat.TomcatWebServer - Tomcat initialized with port(s): 8081 (http)
+2025-09-28 15:58:25.883 [main] INFO  org.apache.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-8081"]
+2025-09-28 15:58:25.886 [main] INFO  org.apache.catalina.core.StandardService - Starting service [Tomcat]
+2025-09-28 15:58:25.886 [main] INFO  org.apache.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/9.0.27]
+2025-09-28 15:58:26.556 [main] INFO  o.a.c.core.ContainerBase.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+2025-09-28 15:58:26.558 [main] INFO  org.springframework.web.context.ContextLoader - Root WebApplicationContext: initialization completed in 5690 ms
+2025-09-28 15:58:37.029 [main] INFO  o.s.scheduling.concurrent.ThreadPoolTaskExecutor - Initializing ExecutorService
+2025-09-28 15:58:37.032 [main] INFO  o.s.scheduling.concurrent.ThreadPoolTaskExecutor - Initializing ExecutorService 'asyncExecutor'
+2025-09-28 15:58:37.130 [main] INFO  o.s.scheduling.concurrent.ThreadPoolTaskScheduler - Initializing ExecutorService
+2025-09-28 15:58:37.133 [main] INFO  o.s.scheduling.concurrent.ThreadPoolTaskScheduler - Initializing ExecutorService 'taskScheduler'
+2025-09-28 15:58:37.462 [main] INFO  s.d.s.w.PropertySourcedRequestMappingHandlerMapping - Mapped URL path [/v2/api-docs] onto method [springfox.documentation.swagger2.web.Swagger2Controller#getDocumentation(String, HttpServletRequest)]
+2025-09-28 15:58:37.642 [main] INFO  o.s.security.web.DefaultSecurityFilterChain - Creating filter chain: any request, [org.springframework.security.web.context.request.async.WebAsyncManagerIntegrationFilter@f017dd0, org.springframework.security.web.context.SecurityContextPersistenceFilter@5a4464c5, org.springframework.security.web.header.HeaderWriterFilter@4e17442f, org.springframework.web.filter.CorsFilter@2424cb9d, org.springframework.security.web.authentication.logout.LogoutFilter@59e7564b, com.qczy.filter.JwtAuthenticationTokenFilter@1665fa54, org.springframework.security.web.savedrequest.RequestCacheAwareFilter@2a5abd3c, org.springframework.security.web.servletapi.SecurityContextHolderAwareRequestFilter@661e1399, org.springframework.security.web.authentication.AnonymousAuthenticationFilter@7f51f588, org.springframework.security.web.session.SessionManagementFilter@2eb1c615, org.springframework.security.web.access.ExceptionTranslationFilter@35e74e08, org.springframework.security.web.access.intercept.FilterSecurityInterceptor@3e38c472]
+2025-09-28 15:58:38.216 [main] INFO  s.d.s.web.plugins.DocumentationPluginsBootstrapper - Context refreshed
+2025-09-28 15:58:38.244 [main] INFO  s.d.s.web.plugins.DocumentationPluginsBootstrapper - Found 1 custom documentation plugin(s)
+2025-09-28 15:58:38.247 [main] INFO  s.d.s.web.plugins.DocumentationPluginsBootstrapper - Skipping initializing disabled plugin bean swagger v2.0
+2025-09-28 15:58:38.267 [main] INFO  org.apache.coyote.http11.Http11NioProtocol - Starting ProtocolHandler ["http-nio-8081"]
+2025-09-28 15:58:38.309 [main] INFO  o.s.boot.web.embedded.tomcat.TomcatWebServer - Tomcat started on port(s): 8081 (http) with context path ''
+2025-09-28 15:58:38.313 [main] INFO  com.qczy.MyApplication - Started MyApplication in 18.774 seconds (JVM running for 22.492)
+2025-09-28 15:59:11.376 [http-nio-8081-exec-1] INFO  o.a.c.core.ContainerBase.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
+2025-09-28 15:59:11.376 [http-nio-8081-exec-1] INFO  org.springframework.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
+2025-09-28 15:59:11.395 [http-nio-8081-exec-1] INFO  org.springframework.web.servlet.DispatcherServlet - Completed initialization in 19 ms
+2025-09-28 15:59:11.810 [http-nio-8081-exec-2] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2025-09-28 15:59:12.347 [http-nio-8081-exec-2] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2025-09-28 15:59:13.107 [http-nio-8081-exec-6] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - checking username:admin
+2025-09-28 15:59:13.120 [http-nio-8081-exec-6] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - authenticated user:admin
+2025-09-28 15:59:13.122 [http-nio-8081-exec-6] INFO  com.qczy.controller.user.UserController - token->Bearer eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJhZG1pbiIsImNyZWF0ZWQiOjE3NTkwNDYzNTI3MTEsImV4cCI6MTc1OTY1MTE1Mn0.7mHiA5-6O-u3faoKoCcGwZsCAwwa4NprbU7C5V5MZQHzC7AhMlEI3JNU5mc5Y5wN9arDhV53wchxsuv8GNB6ZQ
+2025-09-28 15:59:13.164 [http-nio-8081-exec-4] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - checking username:admin
+2025-09-28 15:59:13.175 [http-nio-8081-exec-4] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - authenticated user:admin
+2025-09-28 15:59:13.175 [http-nio-8081-exec-4] INFO  com.qczy.controller.user.UserController - token->Bearer eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJhZG1pbiIsImNyZWF0ZWQiOjE3NTkwNDYzNTI3MTEsImV4cCI6MTc1OTY1MTE1Mn0.7mHiA5-6O-u3faoKoCcGwZsCAwwa4NprbU7C5V5MZQHzC7AhMlEI3JNU5mc5Y5wN9arDhV53wchxsuv8GNB6ZQ
+2025-09-28 15:59:13.190 [http-nio-8081-exec-4] INFO  com.qczy.controller.user.UserController - username->admin
+2025-09-28 15:59:15.781 [http-nio-8081-exec-3] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - checking username:admin
+2025-09-28 15:59:15.788 [http-nio-8081-exec-3] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - authenticated user:admin
+2025-09-28 15:59:15.788 [http-nio-8081-exec-6] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - checking username:admin
+2025-09-28 15:59:15.795 [http-nio-8081-exec-6] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - authenticated user:admin
+2025-09-28 15:59:15.830 [http-nio-8081-exec-5] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - checking username:admin
+2025-09-28 15:59:15.836 [http-nio-8081-exec-5] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - authenticated user:admin
+2025-09-28 15:59:15.844 [http-nio-8081-exec-4] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - checking username:admin
+2025-09-28 15:59:15.849 [http-nio-8081-exec-4] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - authenticated user:admin
+2025-09-28 15:59:15.856 [http-nio-8081-exec-8] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - checking username:admin
+2025-09-28 15:59:15.864 [http-nio-8081-exec-8] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - authenticated user:admin
+2025-09-28 15:59:15.884 [http-nio-8081-exec-7] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - checking username:admin
+2025-09-28 15:59:15.892 [http-nio-8081-exec-7] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - authenticated user:admin
+2025-09-28 15:59:20.735 [http-nio-8081-exec-5] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - checking username:admin
+2025-09-28 15:59:20.741 [http-nio-8081-exec-5] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - authenticated user:admin
+2025-09-28 15:59:20.757 [http-nio-8081-exec-4] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - checking username:admin
+2025-09-28 15:59:20.763 [http-nio-8081-exec-4] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - authenticated user:admin
+2025-09-28 15:59:21.722 [http-nio-8081-exec-8] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - checking username:admin
+2025-09-28 15:59:21.722 [http-nio-8081-exec-8] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - authenticated user:admin
+2025-09-28 15:59:21.738 [http-nio-8081-exec-7] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - checking username:admin
+2025-09-28 15:59:21.753 [http-nio-8081-exec-7] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - authenticated user:admin
+2025-09-28 15:59:25.730 [http-nio-8081-exec-1] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - checking username:admin
+2025-09-28 15:59:25.737 [http-nio-8081-exec-1] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - authenticated user:admin
+2025-09-28 15:59:25.754 [http-nio-8081-exec-9] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - checking username:admin
+2025-09-28 15:59:25.762 [http-nio-8081-exec-9] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - authenticated user:admin
+2025-09-28 15:59:27.734 [http-nio-8081-exec-6] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - checking username:admin
+2025-09-28 15:59:27.741 [http-nio-8081-exec-6] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - authenticated user:admin
+2025-09-28 15:59:27.761 [http-nio-8081-exec-10] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - checking username:admin
+2025-09-28 15:59:27.768 [http-nio-8081-exec-10] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - authenticated user:admin
+2025-09-28 15:59:30.734 [http-nio-8081-exec-3] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - checking username:admin
+2025-09-28 15:59:30.742 [http-nio-8081-exec-3] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - authenticated user:admin
+2025-09-28 15:59:30.759 [http-nio-8081-exec-2] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - checking username:admin
+2025-09-28 15:59:30.767 [http-nio-8081-exec-2] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - authenticated user:admin
+2025-09-28 15:59:31.729 [http-nio-8081-exec-8] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - checking username:admin
+2025-09-28 15:59:31.732 [http-nio-8081-exec-7] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - checking username:admin
+2025-09-28 15:59:31.735 [http-nio-8081-exec-8] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - authenticated user:admin
+2025-09-28 15:59:31.736 [http-nio-8081-exec-7] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - authenticated user:admin
+2025-09-28 15:59:40.032 [http-nio-8081-exec-6] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - checking username:admin
+2025-09-28 15:59:40.032 [http-nio-8081-exec-10] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - checking username:admin
+2025-09-28 15:59:40.038 [http-nio-8081-exec-6] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - authenticated user:admin
+2025-09-28 15:59:40.038 [http-nio-8081-exec-10] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - authenticated user:admin
+2025-09-28 15:59:43.745 [http-nio-8081-exec-2] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - checking username:admin
+2025-09-28 15:59:43.745 [http-nio-8081-exec-2] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - authenticated user:admin
+2025-09-28 16:00:42.385 [SpringContextShutdownHook] INFO  o.s.scheduling.concurrent.ThreadPoolTaskScheduler - Shutting down ExecutorService 'taskScheduler'
+2025-09-28 16:00:42.385 [SpringContextShutdownHook] INFO  o.s.scheduling.concurrent.ThreadPoolTaskExecutor - Shutting down ExecutorService 'asyncExecutor'
+2025-09-28 16:00:42.399 [SpringContextShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2025-09-28 16:00:42.415 [SpringContextShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+2025-09-28 16:03:13.578 [main] INFO  com.qczy.MyApplication - Starting MyApplication on LAPTOP-R3CBIEK9 with PID 16956 (F:\yuanma\back\datamark-admin\target\classes started by lenovo in F:\yuanma\back\datamark-admin)
+2025-09-28 16:03:13.579 [main] INFO  com.qczy.MyApplication - The following profiles are active: test
+2025-09-28 16:03:16.192 [main] INFO  o.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker - Bean 'asyncConfig' of type [com.qczy.config.AsyncConfig$$EnhancerBySpringCGLIB$$b3ec6518] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2025-09-28 16:03:16.354 [main] INFO  o.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker - Bean 'org.springframework.transaction.annotation.ProxyTransactionManagementConfiguration' of type [org.springframework.transaction.annotation.ProxyTransactionManagementConfiguration] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2025-09-28 16:03:16.598 [main] INFO  o.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker - Bean 'org.springframework.security.config.annotation.configuration.ObjectPostProcessorConfiguration' of type [org.springframework.security.config.annotation.configuration.ObjectPostProcessorConfiguration] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2025-09-28 16:03:16.598 [main] INFO  o.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker - Bean 'objectPostProcessor' of type [org.springframework.security.config.annotation.configuration.AutowireBeanFactoryObjectPostProcessor] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2025-09-28 16:03:16.607 [main] INFO  o.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker - Bean 'org.springframework.security.access.expression.method.DefaultMethodSecurityExpressionHandler@6a937336' of type [org.springframework.security.access.expression.method.DefaultMethodSecurityExpressionHandler] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2025-09-28 16:03:16.607 [main] INFO  o.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker - Bean 'org.springframework.security.config.annotation.method.configuration.GlobalMethodSecurityConfiguration' of type [org.springframework.security.config.annotation.method.configuration.GlobalMethodSecurityConfiguration] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2025-09-28 16:03:16.624 [main] INFO  o.s.c.s.PostProcessorRegistrationDelegate$BeanPostProcessorChecker - Bean 'methodSecurityMetadataSource' of type [org.springframework.security.access.method.DelegatingMethodSecurityMetadataSource] is not eligible for getting processed by all BeanPostProcessors (for example: not eligible for auto-proxying)
+2025-09-28 16:03:17.193 [main] INFO  o.s.boot.web.embedded.tomcat.TomcatWebServer - Tomcat initialized with port(s): 8081 (http)
+2025-09-28 16:03:17.207 [main] INFO  org.apache.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-8081"]
+2025-09-28 16:03:17.207 [main] INFO  org.apache.catalina.core.StandardService - Starting service [Tomcat]
+2025-09-28 16:03:17.207 [main] INFO  org.apache.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/9.0.27]
+2025-09-28 16:03:17.644 [main] INFO  o.a.c.core.ContainerBase.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+2025-09-28 16:03:17.644 [main] INFO  org.springframework.web.context.ContextLoader - Root WebApplicationContext: initialization completed in 3985 ms
+2025-09-28 16:03:27.659 [main] INFO  o.s.scheduling.concurrent.ThreadPoolTaskExecutor - Initializing ExecutorService
+2025-09-28 16:03:27.662 [main] INFO  o.s.scheduling.concurrent.ThreadPoolTaskExecutor - Initializing ExecutorService 'asyncExecutor'
+2025-09-28 16:03:27.740 [main] INFO  o.s.scheduling.concurrent.ThreadPoolTaskScheduler - Initializing ExecutorService
+2025-09-28 16:03:27.741 [main] INFO  o.s.scheduling.concurrent.ThreadPoolTaskScheduler - Initializing ExecutorService 'taskScheduler'
+2025-09-28 16:03:28.017 [main] INFO  s.d.s.w.PropertySourcedRequestMappingHandlerMapping - Mapped URL path [/v2/api-docs] onto method [springfox.documentation.swagger2.web.Swagger2Controller#getDocumentation(String, HttpServletRequest)]
+2025-09-28 16:03:28.173 [main] INFO  o.s.security.web.DefaultSecurityFilterChain - Creating filter chain: any request, [org.springframework.security.web.context.request.async.WebAsyncManagerIntegrationFilter@104a287c, org.springframework.security.web.context.SecurityContextPersistenceFilter@410fc508, org.springframework.security.web.header.HeaderWriterFilter@37b01ce2, org.springframework.web.filter.CorsFilter@64dc86c6, org.springframework.security.web.authentication.logout.LogoutFilter@5c82031b, com.qczy.filter.JwtAuthenticationTokenFilter@493da830, org.springframework.security.web.savedrequest.RequestCacheAwareFilter@38087342, org.springframework.security.web.servletapi.SecurityContextHolderAwareRequestFilter@2a04ab05, org.springframework.security.web.authentication.AnonymousAuthenticationFilter@26874f2c, org.springframework.security.web.session.SessionManagementFilter@35e74e08, org.springframework.security.web.access.ExceptionTranslationFilter@55c1ced9, org.springframework.security.web.access.intercept.FilterSecurityInterceptor@2fdf22f7]
+2025-09-28 16:03:28.626 [main] INFO  s.d.s.web.plugins.DocumentationPluginsBootstrapper - Context refreshed
+2025-09-28 16:03:28.644 [main] INFO  s.d.s.web.plugins.DocumentationPluginsBootstrapper - Found 1 custom documentation plugin(s)
+2025-09-28 16:03:28.645 [main] INFO  s.d.s.web.plugins.DocumentationPluginsBootstrapper - Skipping initializing disabled plugin bean swagger v2.0
+2025-09-28 16:03:28.663 [main] INFO  org.apache.coyote.http11.Http11NioProtocol - Starting ProtocolHandler ["http-nio-8081"]
+2025-09-28 16:03:28.704 [main] INFO  o.s.boot.web.embedded.tomcat.TomcatWebServer - Tomcat started on port(s): 8081 (http) with context path ''
+2025-09-28 16:03:28.708 [main] INFO  com.qczy.MyApplication - Started MyApplication in 15.935 seconds (JVM running for 19.416)
+2025-09-28 16:03:38.768 [http-nio-8081-exec-1] INFO  o.a.c.core.ContainerBase.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
+2025-09-28 16:03:38.768 [http-nio-8081-exec-1] INFO  org.springframework.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
+2025-09-28 16:03:38.786 [http-nio-8081-exec-1] INFO  org.springframework.web.servlet.DispatcherServlet - Completed initialization in 16 ms
+2025-09-28 16:03:39.029 [http-nio-8081-exec-1] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - checking username:admin
+2025-09-28 16:03:39.174 [http-nio-8081-exec-1] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2025-09-28 16:03:39.665 [http-nio-8081-exec-1] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2025-09-28 16:03:39.751 [http-nio-8081-exec-1] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - authenticated user:admin
+2025-09-28 16:03:39.835 [http-nio-8081-exec-1] INFO  com.qczy.controller.user.UserController - token->Bearer eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJhZG1pbiIsImNyZWF0ZWQiOjE3NTkwNDYzNTI3MTEsImV4cCI6MTc1OTY1MTE1Mn0.7mHiA5-6O-u3faoKoCcGwZsCAwwa4NprbU7C5V5MZQHzC7AhMlEI3JNU5mc5Y5wN9arDhV53wchxsuv8GNB6ZQ
+2025-09-28 16:03:39.969 [http-nio-8081-exec-2] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - checking username:admin
+2025-09-28 16:03:39.981 [http-nio-8081-exec-2] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - authenticated user:admin
+2025-09-28 16:03:39.985 [http-nio-8081-exec-2] INFO  com.qczy.controller.user.UserController - token->Bearer eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJhZG1pbiIsImNyZWF0ZWQiOjE3NTkwNDYzNTI3MTEsImV4cCI6MTc1OTY1MTE1Mn0.7mHiA5-6O-u3faoKoCcGwZsCAwwa4NprbU7C5V5MZQHzC7AhMlEI3JNU5mc5Y5wN9arDhV53wchxsuv8GNB6ZQ
+2025-09-28 16:03:39.996 [http-nio-8081-exec-2] INFO  com.qczy.controller.user.UserController - username->admin
+2025-09-28 16:03:40.653 [http-nio-8081-exec-5] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - checking username:admin
+2025-09-28 16:03:40.653 [http-nio-8081-exec-6] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - checking username:admin
+2025-09-28 16:03:40.663 [http-nio-8081-exec-5] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - authenticated user:admin
+2025-09-28 16:03:40.666 [http-nio-8081-exec-6] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - authenticated user:admin
+2025-09-28 16:03:44.264 [http-nio-8081-exec-9] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - checking username:admin
+2025-09-28 16:03:44.270 [http-nio-8081-exec-10] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - checking username:admin
+2025-09-28 16:03:44.276 [http-nio-8081-exec-9] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - authenticated user:admin
+2025-09-28 16:03:44.283 [http-nio-8081-exec-10] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - authenticated user:admin
+2025-09-28 16:03:44.429 [http-nio-8081-exec-2] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - checking username:admin
+2025-09-28 16:03:44.437 [http-nio-8081-exec-2] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - authenticated user:admin
+2025-09-28 16:03:46.816 [http-nio-8081-exec-4] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - checking username:admin
+2025-09-28 16:03:46.816 [http-nio-8081-exec-3] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - checking username:admin
+2025-09-28 16:03:46.823 [http-nio-8081-exec-4] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - authenticated user:admin
+2025-09-28 16:03:46.823 [http-nio-8081-exec-3] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - authenticated user:admin
+2025-09-28 16:03:55.068 [http-nio-8081-exec-8] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - checking username:admin
+2025-09-28 16:03:55.068 [http-nio-8081-exec-9] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - checking username:admin
+2025-09-28 16:03:55.075 [http-nio-8081-exec-8] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - authenticated user:admin
+2025-09-28 16:03:55.075 [http-nio-8081-exec-9] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - authenticated user:admin
+2025-09-28 16:03:55.085 [http-nio-8081-exec-10] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - checking username:admin
+2025-09-28 16:03:55.092 [http-nio-8081-exec-10] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - authenticated user:admin
+2025-09-28 16:04:03.953 [http-nio-8081-exec-2] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - checking username:admin
+2025-09-28 16:04:03.958 [http-nio-8081-exec-2] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - authenticated user:admin
+2025-09-28 16:04:04.062 [http-nio-8081-exec-3] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - checking username:admin
+2025-09-28 16:04:04.068 [http-nio-8081-exec-3] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - authenticated user:admin
+2025-09-28 16:04:36.475 [http-nio-8081-exec-4] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - checking username:admin
+2025-09-28 16:04:36.475 [http-nio-8081-exec-6] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - checking username:admin
+2025-09-28 16:04:36.481 [http-nio-8081-exec-4] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - authenticated user:admin
+2025-09-28 16:04:36.481 [http-nio-8081-exec-6] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - authenticated user:admin
+2025-09-28 16:04:38.614 [http-nio-8081-exec-7] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - checking username:admin
+2025-09-28 16:04:38.614 [http-nio-8081-exec-5] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - checking username:admin
+2025-09-28 16:04:38.620 [http-nio-8081-exec-7] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - authenticated user:admin
+2025-09-28 16:04:38.620 [http-nio-8081-exec-5] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - authenticated user:admin
+2025-09-28 16:04:38.636 [http-nio-8081-exec-9] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - checking username:admin
+2025-09-28 16:04:38.641 [http-nio-8081-exec-9] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - authenticated user:admin
+2025-09-28 16:04:38.655 [http-nio-8081-exec-10] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - checking username:admin
+2025-09-28 16:04:38.659 [http-nio-8081-exec-8] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - checking username:admin
+2025-09-28 16:04:38.661 [http-nio-8081-exec-10] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - authenticated user:admin
+2025-09-28 16:04:38.663 [http-nio-8081-exec-8] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - authenticated user:admin
+2025-09-28 16:04:38.678 [http-nio-8081-exec-8] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - checking username:admin
+2025-09-28 16:04:38.682 [http-nio-8081-exec-8] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - authenticated user:admin
+2025-09-28 16:04:43.603 [http-nio-8081-exec-2] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - checking username:admin
+2025-09-28 16:04:43.610 [http-nio-8081-exec-2] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - authenticated user:admin
+2025-09-28 16:04:43.626 [http-nio-8081-exec-3] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - checking username:admin
+2025-09-28 16:04:43.628 [http-nio-8081-exec-3] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - authenticated user:admin
+2025-09-28 16:04:44.604 [http-nio-8081-exec-4] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - checking username:admin
+2025-09-28 16:04:44.610 [http-nio-8081-exec-4] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - authenticated user:admin
+2025-09-28 16:04:44.622 [http-nio-8081-exec-6] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - checking username:admin
+2025-09-28 16:04:44.629 [http-nio-8081-exec-6] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - authenticated user:admin
+2025-09-28 16:04:45.750 [http-nio-8081-exec-7] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - checking username:admin
+2025-09-28 16:04:45.750 [http-nio-8081-exec-9] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - checking username:admin
+2025-09-28 16:04:45.756 [http-nio-8081-exec-9] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - authenticated user:admin
+2025-09-28 16:04:45.756 [http-nio-8081-exec-7] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - authenticated user:admin
+2025-09-28 16:04:55.387 [http-nio-8081-exec-1] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - checking username:admin
+2025-09-28 16:04:55.392 [http-nio-8081-exec-8] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - checking username:admin
+2025-09-28 16:04:55.395 [http-nio-8081-exec-1] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - authenticated user:admin
+2025-09-28 16:04:55.395 [http-nio-8081-exec-8] INFO  com.qczy.filter.JwtAuthenticationTokenFilter - authenticated user:admin
+2025-09-28 16:06:55.744 [SpringContextShutdownHook] INFO  o.s.scheduling.concurrent.ThreadPoolTaskScheduler - Shutting down ExecutorService 'taskScheduler'
+2025-09-28 16:06:55.746 [SpringContextShutdownHook] INFO  o.s.scheduling.concurrent.ThreadPoolTaskExecutor - Shutting down ExecutorService 'asyncExecutor'
+2025-09-28 16:06:55.758 [SpringContextShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2025-09-28 16:06:55.772 [SpringContextShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.

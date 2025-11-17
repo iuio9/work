@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.qczy.mapper.ModelAssessTaskMapper">
+
+
+    <select id="listPage" resultType="com.qczy.model.response.ModelAssessResponse"
+    parameterType="com.qczy.model.entity.ModelAssessTaskEntity">
+        SELECT
+        ta.id AS id,
+        ta.task_name AS taskName,
+        ta.task_type AS taskType,
+        ba.model_name AS modelName,
+        ta.task_progress AS taskProgress,
+        ta.task_status AS taskStatus,
+        CONCAT( fa.group_name, '/v', son.version ) AS sonName,
+        co.error_message AS errorMessage,
+        ta.create_time AS createTime
+        FROM
+        qczy_model_assess_task AS ta
+        LEFT JOIN qczy_model_assess_config AS co ON ta.id = co.assess_task_id
+        LEFT JOIN qczy_model_base AS ba ON ba.id = ta.model_base_id
+        LEFT JOIN ( SELECT version, son_id, father_id FROM qczy_data_son ) AS son ON co.son_id = son.son_id
+        LEFT JOIN ( SELECT group_name, group_id FROM qczy_data_father ) AS fa ON son.father_id = fa.group_id
+        <where>
+            <if test="req.taskName!=null and req.taskName!=''">
+                and ta.task_name like '%${req.taskName}%'
+            </if>
+        </where>
+        ORDER BY
+        id DESC
+    </select>
+
+
+    <select id="reportListPage" resultType="com.qczy.model.response.ModelReportResponse">
+        SELECT
+            ta.id AS id,
+            ta.task_name AS taskName,
+            ta.task_type AS taskType,
+            ta.task_progress AS taskProgress,
+            ta.task_status AS taskStatus,
+            CONCAT( fa.group_name, '/v', son.version ) AS relatedDataset,
+            ta.id AS taskId,
+            ba.apply_for_num AS applyForNum,
+            ba.model_name AS modelName,
+            ba.model_type AS modelType,
+            ba.build_unit_name AS buildUnitName,
+            ba.bt_unit_name AS btUnitName,
+            ba.apply_for_type AS applyForType,
+            ba.apply_for_date AS applyForTime,
+            son.son_id AS sonId
+        FROM
+            qczy_model_assess_task AS ta
+                LEFT JOIN qczy_model_assess_config AS co ON ta.id = co.assess_task_id
+                LEFT JOIN ( SELECT version, son_id, father_id FROM qczy_data_son ) AS son ON co.son_id = son.son_id
+                LEFT JOIN ( SELECT group_name, group_id FROM qczy_data_father ) AS fa ON son.father_id = fa.group_id
+                LEFT JOIN qczy_model_base AS ba ON ta.model_base_id = ba.id
+        WHERE
+            ta.task_type = 2
+        ORDER BY
+            ba.model_name, ta.id desc
+    </select>
+</mapper>
