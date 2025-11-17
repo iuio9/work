@@ -48,6 +48,36 @@ upload:
   port: http:10.5.28.224:8080/temp/file/  #用于返回给前端访问临时文件的访问路径
   address: http:10.5.28.224:9091/
   tempPath: /usr/local/qczyDataMark/temp/  #临时文件夹存储位置
+
+# ============================================================================
+# 联邦学习配置
+# ============================================================================
+flower:
+  server:
+    port: 8080                                    # Flower Server 默认端口（会自动递增避免冲突）
+    script:
+      path: flower_server.py                      # Flower Server Python 脚本路径
+  python:
+    executable: python3                           # Python 可执行文件路径
+  models:
+    save:
+      path: /usr/local/qczyDataMark/fl_models/    # 模型保存路径
+
+federated:
+  node:
+    heartbeat:
+      timeout: 30                                 # 节点心跳超时时间（秒）
+  training:
+    default:
+      num-rounds: 10                              # 默认训练轮数
+      min-clients: 2                              # 默认最少客户端数
+      allowed-drop-percent: 5.0                   # 允许精度下降百分比
+  strategy:
+    fedavg:
+      enabled: true                               # 启用 FedAvg 策略
+    fedprox:
+      enabled: true                               # 启用 FedProx 策略
+      proximal-mu: 0.01                           # FedProx 近端项系数
   formalPath: /usr/local/qczyDataMark/formal/ # 正式文件夹存储位置
   zipPath: /usr/local/gczyDataMark/tempZip/
   modelDescPath: /usr/local/qczyDataMark/file/modelDesc/ #模型评估 - 模型API接口说明存放位置

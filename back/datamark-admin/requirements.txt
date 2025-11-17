@@ -1,0 +1,53 @@
+# ============================================================================
+# 联邦学习框架 Python 依赖
+# ============================================================================
+# 用途：安装 Flower 框架和深度学习库
+# 安装方法：pip install -r requirements.txt
+# ============================================================================
+
+# ========== 核心框架 ==========
+# Flower 联邦学习框架
+flwr>=1.6.0
+
+# ========== 深度学习框架 ==========
+# PyTorch（支持 ResNet, ViT, UNet, LSTM）
+torch>=2.0.0
+torchvision>=0.15.0
+
+# ========== 目标检测模型 ==========
+# YOLOv8（Ultralytics）
+ultralytics>=8.0.0
+
+# ========== 数据处理 ==========
+numpy>=1.24.0
+pandas>=2.0.0
+Pillow>=10.0.0
+
+# ========== 可视化 ==========
+matplotlib>=3.7.0
+seaborn>=0.12.0
+
+# ========== 工具库 ==========
+tqdm>=4.65.0
+scikit-learn>=1.3.0
+
+# ========== HTTP 通信 ==========
+requests>=2.31.0
+
+# ========== 配置和日志 ==========
+pyyaml>=6.0
+loguru>=0.7.0
+
+# ========== GPU 加速（可选）==========
+# 如果有 NVIDIA GPU，可以安装 CUDA 版本的 PyTorch
+# 访问 https://pytorch.org 获取适合您系统的安装命令
+
+# ========== 其他模型支持（可选）==========
+# Transformers（用于 Vision Transformer）
+transformers>=4.35.0
+
+# Timm（PyTorch Image Models，包含更多预训练模型）
+timm>=0.9.0
+
+# Segmentation Models（用于 UNet 等分割模型）
+segmentation-models-pytorch>=0.3.3
