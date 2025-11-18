@@ -183,7 +183,8 @@ const local: App.I18n.Schema = {
     exception_403: '403',
     exception_404: '404',
     exception_500: '500',
-    'model-manage_federated': 'Federated Training'
+    'model-manage_federated': 'Federated Training',
+    'federated-learning': 'Federated Learning'
   },
   page: {
     login: {

@@ -933,5 +933,16 @@ export const generatedRoutes: GeneratedRoute[] = [
         }
       }
     ]
+  },
+  {
+    name: 'federated-learning',
+    path: '/federated-learning',
+    component: 'layout.base$view.federated-learning',
+    meta: {
+      title: '联邦学习',
+      i18nKey: 'route.federated-learning',
+      icon: 'carbon:machine-learning-model',
+      order: 8
+    }
   }
 ];
