@@ -5,6 +5,7 @@ import com.qczy.common.result.Result;
 import com.qczy.model.entity.ManyFileEntity;
 import com.qczy.service.ManyToExamineService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.*;
 
 
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.*;
 public class ManyToExamineController {
 
     @Autowired
+    @Qualifier("manyToExamineServiceImpl")
     private ManyToExamineService manyExamineService;
 
 
