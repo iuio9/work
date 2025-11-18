@@ -37,6 +37,9 @@ public class TrainingJob {
     // 最近一次全局评估精度
     private Double lastGlobalAccuracy;
 
+    // 最佳精度（训练过程中的最高精度）
+    private Double bestAccuracy;
+
     // 当前训练轮次
     private int currentRound;
 }
