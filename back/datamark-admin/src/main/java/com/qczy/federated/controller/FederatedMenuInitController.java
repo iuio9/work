@@ -20,7 +20,7 @@ public class FederatedMenuInitController {
 
     /**
      * 初始化联邦学习菜单
-     * 访问方式: POST http://localhost:9091/api/federated/init/menu
+     * 访问方式: POST http://localhost:8081/api/federated/init/menu
      */
     @PostMapping("/menu")
     public Map<String, Object> initFederatedMenu() {
@@ -79,7 +79,7 @@ public class FederatedMenuInitController {
 
     /**
      * 检查联邦学习菜单状态
-     * 访问方式: GET http://localhost:9091/api/federated/init/check
+     * 访问方式: GET http://localhost:8081/api/federated/init/check
      */
     @GetMapping("/check")
     public Map<String, Object> checkFederatedMenu() {
@@ -96,9 +96,9 @@ public class FederatedMenuInitController {
             result.put("menuExists", menuExists);
 
             if (menuExists) {
-                // 2. 获取菜单信息
+                // 2. 获取菜单完整信息（包含component字段用于诊断）
                 Map<String, Object> menuInfo = jdbcTemplate.queryForMap(
-                    "SELECT id, menu_name, web_path, icon, sort, hide_in_menu FROM qczy_menu WHERE menu_name = 'federated-learning'"
+                    "SELECT id, parent_id, menu_name, web_path, component, icon, i18nKey, sort, hide_in_menu, is_deleted FROM qczy_menu WHERE menu_name = 'federated-learning'"
                 );
                 result.put("menuInfo", menuInfo);
 
@@ -124,7 +124,7 @@ public class FederatedMenuInitController {
 
     /**
      * 删除联邦学习菜单（仅用于测试/重置）
-     * 访问方式: DELETE http://localhost:9091/api/federated/init/menu
+     * 访问方式: DELETE http://localhost:8081/api/federated/init/menu
      */
     @DeleteMapping("/menu")
     public Map<String, Object> removeFederatedMenu() {
