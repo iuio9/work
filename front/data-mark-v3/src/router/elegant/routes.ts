@@ -944,5 +944,16 @@ export const generatedRoutes: GeneratedRoute[] = [
       icon: 'carbon:machine-learning-model',
       order: 8
     }
+  },
+  {
+    name: 'model-distillation',
+    path: '/model-distillation',
+    component: 'layout.base$view.model-distillation',
+    meta: {
+      title: '大小模型协同训练',
+      i18nKey: 'route.model-distillation',
+      icon: 'carbon:model',
+      order: 9
+    }
   }
 ];

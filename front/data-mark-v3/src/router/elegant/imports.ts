@@ -85,4 +85,5 @@ export const views: Record<LastLevelRouteKey, RouteComponent | (() => Promise<Ro
   model_info: () => import("@/views/model/info/index.vue"),
   "target-monitor_modelinference": () => import("@/views/target-monitor/modelInference/index.vue"),
   "federated-learning": () => import("@/views/federated-learning/index.vue"),
+  "model-distillation": () => import("@/views/model-distillation/index.vue"),
 };

@@ -184,7 +184,8 @@ const local: App.I18n.Schema = {
     exception_404: '404',
     exception_500: '500',
     'model-manage_federated': 'Federated Training',
-    'federated-learning': 'Federated Learning'
+    'federated-learning': 'Federated Learning',
+    'model-distillation': 'Model Distillation'
   },
   page: {
     login: {

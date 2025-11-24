@@ -246,6 +246,7 @@ const local: App.I18n.Schema = {
     boxpulse_test: '黑白盒测试',
     'boxpulse_code-test': '系统源码评估测试',
     'federated-learning': '联邦学习',
+    'model-distillation': '大小模型协同训练',
   },
   page: {
     login: {
