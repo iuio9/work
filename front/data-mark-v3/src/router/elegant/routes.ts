@@ -953,7 +953,7 @@ export const generatedRoutes: GeneratedRoute[] = [
       title: '大小模型协同训练',
       i18nKey: 'route.model-distillation',
       icon: 'carbon:model',
-      order: 9
+      order: 10
     }
   }
 ];
