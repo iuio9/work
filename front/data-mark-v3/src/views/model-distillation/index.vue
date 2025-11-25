@@ -489,306 +489,96 @@
           </div>
         </n-tab-pane>
 
-        <!-- 5. 模型推理标注标签页 -->
-        <n-tab-pane name="model-inference" tab="模型推理标注">
+        <!-- 5. 已训练模型列表标签页 -->
+        <n-tab-pane name="trained-models" tab="已训练模型">
           <div class="p-4">
-            <n-space vertical :size="24">
-              <!-- 第一步：选择训练好的模型 -->
-              <n-card title="步骤1：选择训练好的模型" :bordered="false" size="small" hoverable>
-                <n-space vertical :size="16">
-                  <n-alert type="info" title="提示">
-                    请选择一个已完成训练的模型用于图像标注。只有状态为"已完成"且准确率达标的模型才可用于推理。
-                  </n-alert>
+            <n-space vertical :size="16">
+              <n-alert type="info" title="说明" closable>
+                这里展示所有已完成训练的大小模型协同训练任务。您可以在"数据标注 > 自动标注"页面中使用这些模型进行图像标注。
+              </n-alert>
 
-                  <n-form :label-width="120">
-                    <n-grid :cols="2" :x-gap="24">
-                      <n-gi>
-                        <n-form-item label="选择模型">
-                          <n-select
-                            v-model:value="inferenceConfig.selectedModelId"
-                            :options="completedModelOptions"
-                            placeholder="选择已训练完成的模型"
-                            @update:value="handleModelSelect"
-                          >
-                            <template #label="{ option }">
-                              <div class="flex items-center justify-between w-full">
-                                <span>{{ option.label }}</span>
-                                <n-tag size="small" :type="option.accuracy > 85 ? 'success' : 'warning'">
-                                  准确率: {{ option.accuracy }}%
-                                </n-tag>
-                              </div>
-                            </template>
-                          </n-select>
-                        </n-form-item>
-                      </n-gi>
-                      <n-gi v-if="selectedInferenceModel">
-                        <n-form-item label="模型类型">
-                          <n-input :value="selectedInferenceModel.modelType" disabled />
-                        </n-form-item>
-                      </n-gi>
-                      <n-gi v-if="selectedInferenceModel" :span="2">
-                        <n-descriptions :column="4" bordered size="small">
-                          <n-descriptions-item label="任务ID">
-                            {{ selectedInferenceModel.taskId }}
-                          </n-descriptions-item>
-                          <n-descriptions-item label="训练轮数">
-                            {{ selectedInferenceModel.epochs }}
-                          </n-descriptions-item>
-                          <n-descriptions-item label="LoRA Rank">
-                            {{ selectedInferenceModel.loraRank }}
-                          </n-descriptions-item>
-                          <n-descriptions-item label="完成时间">
-                            {{ selectedInferenceModel.completedAt }}
-                          </n-descriptions-item>
-                        </n-descriptions>
-                      </n-gi>
-                    </n-grid>
-                  </n-form>
-                </n-space>
-              </n-card>
-
-              <!-- 第二步：上传图像 -->
-              <n-card title="步骤2：上传待标注图像" :bordered="false" size="small" hoverable>
-                <n-space vertical :size="16">
-                  <n-alert type="warning" title="上传要求">
-                    支持 JPG、PNG、JPEG 格式，单张图片不超过 10MB，批量上传最多 50 张
-                  </n-alert>
-
-                  <n-upload
-                    multiple
-                    directory-dnd
-                    :max="50"
-                    accept="image/png,image/jpeg,image/jpg"
-                    :custom-request="handleImageUpload"
-                    :file-list="uploadedImages"
-                    @update:file-list="handleFileListChange"
-                    list-type="image-card"
-                  >
-                    <n-upload-dragger>
-                      <div style="margin-bottom: 12px">
-                        <n-icon size="48" :depth="3">
-                          <component :is="CloudUploadOutline" />
-                        </n-icon>
-                      </div>
-                      <n-text style="font-size: 16px">
-                        点击或者拖动图片到该区域来上传
-                      </n-text>
-                      <n-p depth="3" style="margin: 8px 0 0 0">
-                        支持批量上传，一次性上传多张图片进行标注
-                      </n-p>
-                    </n-upload-dragger>
-                  </n-upload>
-
-                  <n-space>
-                    <n-statistic label="已上传图片" :value="uploadedImages.length" />
-                    <n-statistic label="待标注" :value="pendingAnnotationCount" />
-                    <n-statistic label="已标注" :value="annotatedCount" />
-                  </n-space>
-                </n-space>
-              </n-card>
-
-              <!-- 第三步：标注参数配置 -->
-              <n-card title="步骤3：配置标注参数" :bordered="false" size="small" hoverable>
-                <n-form :label-width="140">
-                  <n-grid :cols="3" :x-gap="24">
-                    <n-gi>
-                      <n-form-item label="置信度阈值">
-                        <n-slider
-                          v-model:value="inferenceConfig.confidenceThreshold"
-                          :min="0"
-                          :max="1"
-                          :step="0.05"
-                          :marks="{ 0: '0', 0.5: '0.5', 1: '1' }"
-                        >
-                          <template #thumb>
-                            {{ inferenceConfig.confidenceThreshold.toFixed(2) }}
-                          </template>
-                        </n-slider>
-                      </n-form-item>
-                    </n-gi>
-                    <n-gi>
-                      <n-form-item label="NMS 阈值">
-                        <n-input-number
-                          v-model:value="inferenceConfig.nmsThreshold"
-                          :min="0"
-                          :max="1"
-                          :step="0.05"
-                          placeholder="非极大值抑制阈值"
-                          style="width: 100%"
-                        />
-                      </n-form-item>
-                    </n-gi>
-                    <n-gi>
-                      <n-form-item label="最大检测数">
-                        <n-input-number
-                          v-model:value="inferenceConfig.maxDetections"
-                          :min="1"
-                          :max="1000"
-                          placeholder="每张图片最大检测目标数"
-                          style="width: 100%"
-                        />
-                      </n-form-item>
-                    </n-gi>
-                    <n-gi>
-                      <n-form-item label="批处理大小">
-                        <n-input-number
-                          v-model:value="inferenceConfig.batchSize"
-                          :min="1"
-                          :max="32"
-                          placeholder="推理批次大小"
-                          style="width: 100%"
-                        />
-                      </n-form-item>
-                    </n-gi>
-                    <n-gi>
-                      <n-form-item label="使用 GPU">
-                        <n-switch v-model:value="inferenceConfig.useGpu">
-                          <template #checked>启用</template>
-                          <template #unchecked>禁用</template>
-                        </n-switch>
-                      </n-form-item>
-                    </n-gi>
-                    <n-gi>
-                      <n-form-item label="显示边界框">
-                        <n-switch v-model:value="inferenceConfig.showBBox">
-                          <template #checked>显示</template>
-                          <template #unchecked>隐藏</template>
-                        </n-switch>
-                      </n-form-item>
-                    </n-gi>
-                  </n-grid>
+              <!-- 搜索和筛选 -->
+              <n-card title="筛选条件" :bordered="false" size="small">
+                <n-form inline :label-width="80">
+                  <n-form-item label="任务名称">
+                    <n-input
+                      v-model:value="trainedModelsSearch.taskName"
+                      placeholder="输入任务名称"
+                      clearable
+                      style="width: 200px"
+                    />
+                  </n-form-item>
+                  <n-form-item label="教师模型">
+                    <n-select
+                      v-model:value="trainedModelsSearch.teacherModel"
+                      :options="teacherModelOptions.map(m => ({ label: m.label, value: m.value }))"
+                      placeholder="选择教师模型"
+                      clearable
+                      style="width: 200px"
+                    />
+                  </n-form-item>
+                  <n-form-item label="学生模型">
+                    <n-select
+                      v-model:value="trainedModelsSearch.studentModel"
+                      :options="studentModelOptions.map(m => ({ label: m.label, value: m.value }))"
+                      placeholder="选择学生模型"
+                      clearable
+                      style="width: 200px"
+                    />
+                  </n-form-item>
+                  <n-form-item label="最小准确率">
+                    <n-input-number
+                      v-model:value="trainedModelsSearch.minAccuracy"
+                      :min="0"
+                      :max="100"
+                      placeholder="最小准确率"
+                      style="width: 150px"
+                    >
+                      <template #suffix>%</template>
+                    </n-input-number>
+                  </n-form-item>
+                  <n-form-item>
+                    <n-space>
+                      <n-button @click="resetTrainedModelsSearch">
+                        <template #icon>
+                          <n-icon :component="RefreshOutline" />
+                        </template>
+                        重置
+                      </n-button>
+                      <n-button type="primary" @click="refreshTasks">
+                        <template #icon>
+                          <n-icon :component="SearchOutline" />
+                        </template>
+                        搜索
+                      </n-button>
+                    </n-space>
+                  </n-form-item>
                 </n-form>
               </n-card>
 
-              <!-- 操作按钮 -->
-              <n-space justify="center">
-                <n-button
-                  size="large"
-                  type="primary"
-                  :disabled="!canStartInference"
-                  :loading="inferencing"
-                  @click="handleStartInference"
-                >
-                  <template #icon>
-                    <n-icon :component="PlayOutline" />
-                  </template>
-                  开始自动标注（{{ uploadedImages.length }} 张图片）
-                </n-button>
-                <n-button size="large" @click="handleClearAll">
-                  <template #icon>
-                    <n-icon :component="TrashOutline" />
-                  </template>
-                  清空所有
-                </n-button>
-              </n-space>
-
-              <!-- 标注进度 -->
-              <n-card v-if="inferencing || annotationProgress > 0" title="标注进度" :bordered="false">
-                <n-space vertical :size="16">
-                  <div>
-                    <div class="flex justify-between mb-2">
-                      <span>整体进度</span>
-                      <span>{{ annotationProgress }}% ({{ annotatedCount }}/{{ uploadedImages.length }})</span>
-                    </div>
-                    <n-progress
-                      type="line"
-                      :percentage="annotationProgress"
-                      :indicator-placement="'inside'"
-                      processing
-                      :status="inferencing ? 'default' : 'success'"
-                    />
-                  </div>
-                  <n-space>
-                    <n-tag type="info">
-                      当前处理: {{ currentProcessingImage }}
-                    </n-tag>
-                    <n-tag type="success">
-                      平均耗时: {{ avgInferenceTime }}ms/张
-                    </n-tag>
-                  </n-space>
-                </n-space>
-              </n-card>
-
-              <!-- 标注结果展示 -->
-              <n-card
-                v-if="annotationResults.length > 0"
-                title="标注结果"
-                :bordered="false"
-              >
+              <!-- 已训练模型列表 -->
+              <n-card title="已训练模型列表" :bordered="false">
                 <template #header-extra>
                   <n-space>
-                    <n-button @click="handleExportJSON">
+                    <n-tag type="success">
+                      共 {{ filteredCompletedModels.length }} 个可用模型
+                    </n-tag>
+                    <n-button size="small" @click="refreshTasks">
                       <template #icon>
-                        <n-icon :component="DownloadOutline" />
+                        <n-icon :component="RefreshOutline" />
                       </template>
-                      导出 JSON
-                    </n-button>
-                    <n-button @click="handleExportCOCO">
-                      <template #icon>
-                        <n-icon :component="DownloadOutline" />
-                      </template>
-                      导出 COCO 格式
-                    </n-button>
-                    <n-button @click="handleExportYOLO">
-                      <template #icon>
-                        <n-icon :component="DownloadOutline" />
-                      </template>
-                      导出 YOLO 格式
+                      刷新
                     </n-button>
                   </n-space>
                 </template>
 
-                <n-grid :cols="3" :x-gap="16" :y-gap="16">
-                  <n-gi v-for="result in annotationResults" :key="result.imageId">
-                    <n-card size="small" hoverable>
-                      <template #cover>
-                        <img
-                          :src="result.annotatedImageUrl"
-                          :alt="result.imageName"
-                          style="width: 100%; height: 200px; object-fit: cover"
-                        />
-                      </template>
-                      <n-space vertical :size="8">
-                        <n-text strong>{{ result.imageName }}</n-text>
-                        <n-space>
-                          <n-tag size="small" type="success">
-                            检测到 {{ result.detections.length }} 个目标
-                          </n-tag>
-                          <n-tag size="small" type="info">
-                            耗时: {{ result.inferenceTime }}ms
-                          </n-tag>
-                        </n-space>
-                        <n-collapse>
-                          <n-collapse-item title="查看检测详情" name="details">
-                            <n-space vertical :size="4">
-                              <div
-                                v-for="(det, idx) in result.detections"
-                                :key="idx"
-                                class="flex justify-between"
-                              >
-                                <span>{{ det.label }}</span>
-                                <n-tag size="small" :type="det.confidence > 0.8 ? 'success' : 'warning'">
-                                  {{ (det.confidence * 100).toFixed(1) }}%
-                                </n-tag>
-                              </div>
-                            </n-space>
-                          </n-collapse-item>
-                        </n-collapse>
-                        <n-space>
-                          <n-button size="small" @click="handleViewDetail(result)">
-                            <template #icon>
-                              <n-icon :component="EyeOutline" />
-                            </template>
-                            查看大图
-                          </n-button>
-                          <n-button size="small" @click="handleEditAnnotations(result)">
-                            编辑标注
-                          </n-button>
-                        </n-space>
-                      </n-space>
-                    </n-card>
-                  </n-gi>
-                </n-grid>
+                <n-data-table
+                  :columns="trainedModelsColumns"
+                  :data="filteredCompletedModels"
+                  :loading="tasksLoading"
+                  :pagination="trainedModelsPagination"
+                  :bordered="false"
+                />
               </n-card>
             </n-space>
           </div>
@@ -1125,33 +915,20 @@ let accuracyChart: echarts.ECharts | null = null;
 let gpuChart: echarts.ECharts | null = null;
 let memoryChart: echarts.ECharts | null = null;
 
-// ==================== 模型推理标注相关数据 ====================
+// ==================== 已训练模型相关数据 ====================
 
-// 推理配置
-const inferenceConfig = ref({
-  selectedModelId: '',
-  confidenceThreshold: 0.5,
-  nmsThreshold: 0.45,
-  maxDetections: 100,
-  batchSize: 8,
-  useGpu: true,
-  showBBox: true
+// 已训练模型搜索条件
+const trainedModelsSearch = ref({
+  taskName: '',
+  teacherModel: null as string | null,
+  studentModel: null as string | null,
+  minAccuracy: null as number | null
 });
 
-// 已上传的图片
-const uploadedImages = ref<any[]>([]);
-
-// 标注结果
-const annotationResults = ref<any[]>([]);
-
-// 推理状态
-const inferencing = ref(false);
-const annotationProgress = ref(0);
-const currentProcessingImage = ref('');
-const avgInferenceTime = ref(0);
-
-// 选中的推理模型
-const selectedInferenceModel = ref<any>(null);
+// 已训练模型分页
+const trainedModelsPagination = {
+  pageSize: 10
+};
 
 // ==================== 选项数据 ====================
 
@@ -1272,36 +1049,137 @@ const taskPagination = {
   pageSize: 10
 };
 
-// 推理相关计算属性
-const completedModelOptions = computed(() => {
-  // 从已完成的训练任务中生成模型选项
-  return tasks.value
-    .filter(task => task.status === 'COMPLETED' && task.accuracy && task.accuracy > 70)
-    .map(task => ({
-      label: `${task.taskName} (${task.teacherModel} + ${task.studentModel})`,
-      value: task.taskId,
-      accuracy: task.accuracy,
-      modelType: task.studentModel,
-      taskId: task.taskId,
-      epochs: task.totalEpochs,
-      loraRank: task.loraRank,
-      completedAt: task.createTime
-    }));
-});
+// 已训练模型筛选
+const filteredCompletedModels = computed(() => {
+  let filtered = tasks.value.filter(task => task.status === 'COMPLETED' && task.accuracy && task.accuracy > 0);
 
-const pendingAnnotationCount = computed(() => {
-  return uploadedImages.value.length - annotatedCount.value;
-});
+  const search = trainedModelsSearch.value;
 
-const annotatedCount = computed(() => {
-  return annotationResults.value.length;
-});
+  // 按任务名称筛选
+  if (search.taskName) {
+    filtered = filtered.filter(task =>
+      task.taskName.toLowerCase().includes(search.taskName.toLowerCase())
+    );
+  }
 
-const canStartInference = computed(() => {
-  return inferenceConfig.value.selectedModelId && uploadedImages.value.length > 0 && !inferencing.value;
+  // 按教师模型筛选
+  if (search.teacherModel) {
+    filtered = filtered.filter(task => task.teacherModel === search.teacherModel);
+  }
+
+  // 按学生模型筛选
+  if (search.studentModel) {
+    filtered = filtered.filter(task => task.studentModel === search.studentModel);
+  }
+
+  // 按最小准确率筛选
+  if (search.minAccuracy !== null && search.minAccuracy !== undefined) {
+    filtered = filtered.filter(task => task.accuracy >= search.minAccuracy!);
+  }
+
+  return filtered;
 });
 
 // ==================== 表格列定义 ====================
+
+// 已训练模型表格列
+const trainedModelsColumns = [
+  {
+    title: '任务ID',
+    key: 'taskId',
+    width: 120,
+    ellipsis: { tooltip: true }
+  },
+  {
+    title: '任务名称',
+    key: 'taskName',
+    width: 180,
+    ellipsis: { tooltip: true }
+  },
+  {
+    title: '教师模型',
+    key: 'teacherModel',
+    width: 150,
+    render: (row: any) => {
+      const model = teacherModelOptions.find(m => m.value === row.teacherModel);
+      return h('span', model?.label || row.teacherModel);
+    }
+  },
+  {
+    title: '学生模型',
+    key: 'studentModel',
+    width: 150,
+    render: (row: any) => {
+      const model = studentModelOptions.find(m => m.value === row.studentModel);
+      return h('span', model?.label || row.studentModel);
+    }
+  },
+  {
+    title: '训练轮数',
+    key: 'totalEpochs',
+    width: 100,
+    align: 'center'
+  },
+  {
+    title: 'LoRA Rank',
+    key: 'loraRank',
+    width: 100,
+    align: 'center'
+  },
+  {
+    title: '准确率',
+    key: 'accuracy',
+    width: 120,
+    align: 'center',
+    render: (row: any) => {
+      const accuracy = row.accuracy || 0;
+      const type = accuracy >= 90 ? 'success' : accuracy >= 80 ? 'info' : accuracy >= 70 ? 'warning' : 'error';
+      return h(
+        NTag,
+        { type, size: 'small' },
+        { default: () => `${accuracy.toFixed(2)}%` }
+      );
+    }
+  },
+  {
+    title: '创建时间',
+    key: 'createTime',
+    width: 180
+  },
+  {
+    title: '操作',
+    key: 'actions',
+    width: 200,
+    align: 'center',
+    fixed: 'right',
+    render: (row: any) => {
+      return h(
+        'div',
+        { class: 'flex gap-8px justify-center' },
+        [
+          h(
+            NButton,
+            {
+              size: 'small',
+              type: 'primary',
+              onClick: () => handleViewTrainedModelDetail(row)
+            },
+            { default: () => '查看详情' }
+          ),
+          h(
+            NButton,
+            {
+              size: 'small',
+              type: 'info',
+              onClick: () => handleUseModelForAnnotation(row)
+            },
+            { default: () => '用于标注' }
+          )
+        ]
+      );
+    }
+  }
+];
 
 const taskColumns = [
   {
@@ -1932,225 +1810,75 @@ function initMemoryChart() {
   memoryChart.setOption(option);
 }
 
-// ==================== 模型推理标注方法 ====================
+// ==================== 已训练模型相关方法 ====================
 
-// 模型选择处理
-function handleModelSelect(modelId: string) {
-  const model = completedModelOptions.value.find(m => m.value === modelId);
-  if (model) {
-    selectedInferenceModel.value = model;
-    message.info(`已选择模型: ${model.label}`);
-  }
-}
-
-// 图片上传处理
-function handleImageUpload(options: any) {
-  const { file, onFinish, onError } = options;
-
-  // 创建图片预览
-  const reader = new FileReader();
-  reader.onload = (e: any) => {
-    uploadedImages.value.push({
-      id: Date.now() + Math.random(),
-      name: file.name,
-      file: file.file,
-      url: e.target.result,
-      status: 'pending'
-    });
-    onFinish();
+// 重置搜索条件
+function resetTrainedModelsSearch() {
+  trainedModelsSearch.value = {
+    taskName: '',
+    teacherModel: null,
+    studentModel: null,
+    minAccuracy: null
   };
-  reader.onerror = () => {
-    onError();
-    message.error(`上传失败: ${file.name}`);
-  };
-  reader.readAsDataURL(file.file);
+  message.success('已重置搜索条件');
 }
 
-// 文件列表变更处理
-function handleFileListChange(fileList: any[]) {
-  // 处理删除操作
-  if (fileList.length < uploadedImages.value.length) {
-    uploadedImages.value = uploadedImages.value.filter((img, index) =>
-      fileList.some(f => f.id === img.id || index < fileList.length)
-    );
-  }
-}
-
-// 开始推理标注
-async function handleStartInference() {
-  if (!inferenceConfig.value.selectedModelId) {
-    message.error('请先选择模型');
-    return;
-  }
-
-  if (uploadedImages.value.length === 0) {
-    message.error('请先上传图片');
-    return;
-  }
-
-  inferencing.value = true;
-  annotationProgress.value = 0;
-  annotationResults.value = [];
-
-  const totalImages = uploadedImages.value.length;
-  let processedCount = 0;
-  let totalTime = 0;
-
-  try {
-    // 批量处理图片
-    for (let i = 0; i < totalImages; i++) {
-      const image = uploadedImages.value[i];
-      currentProcessingImage.value = image.name;
-
-      // 模拟推理过程
-      const startTime = Date.now();
-
-      // TODO: 调用后端API进行实际推理
-      // const result = await performInference(image.file, inferenceConfig.value);
-
-      // 模拟延迟
-      await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 1000));
-
-      const inferenceTime = Date.now() - startTime;
-      totalTime += inferenceTime;
-
-      // 模拟检测结果
-      const mockDetections = [
-        { label: '目标1', confidence: 0.85 + Math.random() * 0.1, bbox: [100, 100, 200, 200] },
-        { label: '目标2', confidence: 0.75 + Math.random() * 0.15, bbox: [300, 150, 400, 250] }
-      ].filter(() => Math.random() > 0.3); // 随机生成0-2个检测结果
-
-      annotationResults.value.push({
-        imageId: image.id,
-        imageName: image.name,
-        annotatedImageUrl: image.url, // TODO: 替换为标注后的图片URL
-        detections: mockDetections,
-        inferenceTime
-      });
-
-      processedCount++;
-      annotationProgress.value = Math.round((processedCount / totalImages) * 100);
-      avgInferenceTime.value = Math.round(totalTime / processedCount);
-    }
-
-    message.success(`标注完成！共处理 ${totalImages} 张图片，检测到 ${annotationResults.value.reduce((sum, r) => sum + r.detections.length, 0)} 个目标`);
-  } catch (error: any) {
-    message.error(`标注失败: ${error.message}`);
-  } finally {
-    inferencing.value = false;
-    currentProcessingImage.value = '';
-  }
-}
-
-// 清空所有
-function handleClearAll() {
-  dialog.warning({
-    title: '确认清空',
-    content: '确定要清空所有图片和标注结果吗？',
-    positiveText: '确定',
-    negativeText: '取消',
-    onPositiveClick: () => {
-      uploadedImages.value = [];
-      annotationResults.value = [];
-      annotationProgress.value = 0;
-      inferenceConfig.value.selectedModelId = '';
-      selectedInferenceModel.value = null;
-      message.success('已清空');
-    }
-  });
-}
-
-// 导出 JSON 格式
-function handleExportJSON() {
-  const jsonData = JSON.stringify(annotationResults.value, null, 2);
-  downloadFile(jsonData, 'annotations.json', 'application/json');
-  message.success('已导出 JSON 格式');
-}
-
-// 导出 COCO 格式
-function handleExportCOCO() {
-  // 构造 COCO 格式数据
-  const cocoData = {
-    images: annotationResults.value.map((result, idx) => ({
-      id: idx + 1,
-      file_name: result.imageName,
-      width: 1920, // TODO: 从实际图片获取
-      height: 1080
-    })),
-    annotations: annotationResults.value.flatMap((result, imgIdx) =>
-      result.detections.map((det: any, detIdx: number) => ({
-        id: imgIdx * 1000 + detIdx,
-        image_id: imgIdx + 1,
-        category_id: 1, // TODO: 类别映射
-        bbox: det.bbox,
-        score: det.confidence,
-        area: (det.bbox[2] - det.bbox[0]) * (det.bbox[3] - det.bbox[1])
-      }))
-    ),
-    categories: [
-      { id: 1, name: '默认类别' } // TODO: 从模型配置获取类别
-    ]
-  };
-
-  const jsonData = JSON.stringify(cocoData, null, 2);
-  downloadFile(jsonData, 'annotations_coco.json', 'application/json');
-  message.success('已导出 COCO 格式');
-}
-
-// 导出 YOLO 格式
-function handleExportYOLO() {
-  annotationResults.value.forEach(result => {
-    const yoloLines = result.detections.map((det: any) => {
-      // YOLO 格式: class_id center_x center_y width height (归一化坐标)
-      const [x1, y1, x2, y2] = det.bbox;
-      const centerX = ((x1 + x2) / 2) / 1920; // TODO: 使用实际图片宽度
-      const centerY = ((y1 + y2) / 2) / 1080; // TODO: 使用实际图片高度
-      const width = (x2 - x1) / 1920;
-      const height = (y2 - y1) / 1080;
-      return `0 ${centerX.toFixed(6)} ${centerY.toFixed(6)} ${width.toFixed(6)} ${height.toFixed(6)}`;
-    }).join('\n');
-
-    const filename = result.imageName.replace(/\.[^/.]+$/, '.txt');
-    downloadFile(yoloLines, filename, 'text/plain');
-  });
-
-  message.success(`已导出 ${annotationResults.value.length} 个 YOLO 标注文件`);
-}
-
-// 查看详情
-function handleViewDetail(result: any) {
+// 查看训练模型详情
+function handleViewTrainedModelDetail(row: any) {
   dialog.info({
-    title: result.imageName,
-    content: () => h('div', [
-      h('img', { src: result.annotatedImageUrl, style: 'width: 100%; max-width: 800px;' }),
-      h('div', { style: 'margin-top: 16px;' }, [
-        h('strong', `检测到 ${result.detections.length} 个目标：`),
-        h('ul', result.detections.map((det: any) =>
-          h('li', `${det.label} - ${(det.confidence * 100).toFixed(1)}%`)
-        ))
-      ])
-    ]),
-    style: { width: '80%' }
+    title: `模型详情 - ${row.taskName}`,
+    content: () =>
+      h('div', { class: 'space-y-4' }, [
+        h('div', { class: 'grid grid-cols-2 gap-4' }, [
+          h('div', [
+            h('strong', '任务ID: '),
+            h('span', row.taskId)
+          ]),
+          h('div', [
+            h('strong', '任务名称: '),
+            h('span', row.taskName)
+          ]),
+          h('div', [
+            h('strong', '教师模型: '),
+            h('span', teacherModelOptions.find(m => m.value === row.teacherModel)?.label || row.teacherModel)
+          ]),
+          h('div', [
+            h('strong', '学生模型: '),
+            h('span', studentModelOptions.find(m => m.value === row.studentModel)?.label || row.studentModel)
+          ]),
+          h('div', [
+            h('strong', '训练轮数: '),
+            h('span', row.totalEpochs)
+          ]),
+          h('div', [
+            h('strong', 'LoRA Rank: '),
+            h('span', row.loraRank)
+          ]),
+          h('div', [
+            h('strong', '准确率: '),
+            h('span', `${row.accuracy.toFixed(2)}%`)
+          ]),
+          h('div', [
+            h('strong', '创建时间: '),
+            h('span', row.createTime)
+          ])
+        ])
+      ]),
+    style: { width: '600px' }
   });
 }
 
-// 编辑标注
-function handleEditAnnotations(result: any) {
-  message.info('标注编辑功能开发中...');
-  // TODO: 打开标注编辑器
-}
-
-// 下载文件辅助函数
-function downloadFile(content: string, filename: string, mimeType: string) {
-  const blob = new Blob([content], { type: mimeType });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+// 使用模型进行标注
+function handleUseModelForAnnotation(row: any) {
+  const router = useRouter();
+  router.push({
+    path: '/data-ano/autoano',
+    query: {
+      distillationModelId: row.taskId,
+      distillationModelName: row.taskName
+    }
+  });
+  message.success(`已选择模型 ${row.taskName}，正在跳转到自动标注页面...`);
 }
 
 // ==================== 生命周期 ====================
