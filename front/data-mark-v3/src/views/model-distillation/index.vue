@@ -1454,20 +1454,74 @@ function refreshTasks() {
   tasksLoading.value = true;
   // TODO: 调用后端API获取任务列表
   setTimeout(() => {
-    // 模拟数据
+    // 示例数据：包含已完成和运行中的任务（用于演示）
     tasks.value = [
+      // 已完成的任务（用于"已训练模型"标签页展示）
+      {
+        taskId: 'TASK_001',
+        taskName: '目标检测协同训练-YOLOv5',
+        teacherModel: 'llama2-7b',
+        studentModel: 'yolov5s',
+        loraRank: 16,
+        status: 'COMPLETED',
+        progress: 100,
+        currentEpoch: 50,
+        totalEpochs: 50,
+        accuracy: 92.5,
+        createTime: '2025-11-23 10:30:00'
+      },
+      {
+        taskId: 'TASK_002',
+        taskName: '图像分类协同训练-ResNet',
+        teacherModel: 'qwen-7b',
+        studentModel: 'resnet50',
+        loraRank: 8,
+        status: 'COMPLETED',
+        progress: 100,
+        currentEpoch: 40,
+        totalEpochs: 40,
+        accuracy: 88.3,
+        createTime: '2025-11-20 14:15:00'
+      },
+      {
+        taskId: 'TASK_003',
+        taskName: '语义分割协同训练-UNet',
+        teacherModel: 'llama2-13b',
+        studentModel: 'unet',
+        loraRank: 16,
+        status: 'COMPLETED',
+        progress: 100,
+        currentEpoch: 60,
+        totalEpochs: 60,
+        accuracy: 85.7,
+        createTime: '2025-11-18 09:00:00'
+      },
+      {
+        taskId: 'TASK_005',
+        taskName: '视觉Transformer协同训练',
+        teacherModel: 'llama2-7b',
+        studentModel: 'vit',
+        loraRank: 16,
+        status: 'COMPLETED',
+        progress: 100,
+        currentEpoch: 45,
+        totalEpochs: 45,
+        accuracy: 90.2,
+        createTime: '2025-11-15 16:45:00'
+      },
+      // 正在运行的任务
       {
         taskId: 'task-001',
         taskName: 'LLaMA2-7B 蒸馏训练',
-        teacherModel: 'LLaMA-2-7B',
-        studentModel: 'TinyLLaMA-1.1B',
+        teacherModel: 'llama2-7b',
+        studentModel: 'tinyllama',
         loraRank: 16,
         status: 'RUNNING',
         progress: 45,
         currentEpoch: 4,
         totalEpochs: 10,
         accuracy: 82.5,
-        createTime: '2025-11-19 10:30:00'
+        createTime: '2025-11-25 10:30:00'
       }
     ];
     tasksLoading.value = false;
