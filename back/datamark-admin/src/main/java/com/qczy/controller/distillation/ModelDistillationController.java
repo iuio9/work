@@ -149,7 +149,7 @@ public class ModelDistillationController {
     @GetMapping("/tasks")
     @ApiOperation("获取所有训练任务")
     public Result<?> getAllTasks() {
-        return Result.success(MOCK_TASKS);
+        return Result.ok(MOCK_TASKS);
     }
 
     @GetMapping("/completed-models")
@@ -182,7 +182,7 @@ public class ModelDistillationController {
             })
             .collect(Collectors.toList());
 
-        return Result.success(completedTasks);
+        return Result.ok(completedTasks);
     }
 
     @GetMapping("/tasks/{taskId}")
@@ -193,9 +193,9 @@ public class ModelDistillationController {
             .findFirst();
 
         if (task.isPresent()) {
-            return Result.success(task.get());
+            return Result.ok(task.get());
         } else {
-            return Result.failed("任务不存在");
+            return Result.fail("任务不存在").message("任务不存在");
         }
     }
 
@@ -225,7 +225,7 @@ public class ModelDistillationController {
 
         MOCK_TASKS.add(newTask);
 
-        return Result.success(newTask, "任务创建成功");
+        return Result.ok(newTask).message("任务创建成功");
     }
 
     @PostMapping("/tasks/{taskId}/start")
@@ -240,9 +240,9 @@ public class ModelDistillationController {
             task.put("status", "RUNNING");
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
             task.put("updateTime", LocalDateTime.now().format(formatter));
-            return Result.success(task, "任务已启动");
+            return Result.ok(task).message("任务已启动");
         } else {
-            return Result.failed("任务不存在");
+            return Result.fail("任务不存在").message("任务不存在");
         }
     }
 
@@ -258,9 +258,9 @@ public class ModelDistillationController {
             task.put("status", "STOPPED");
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
             task.put("updateTime", LocalDateTime.now().format(formatter));
-            return Result.success(task, "任务已停止");
+            return Result.ok(task).message("任务已停止");
         } else {
-            return Result.failed("任务不存在");
+            return Result.fail("任务不存在").message("任务不存在");
         }
     }
 
@@ -270,9 +270,9 @@ public class ModelDistillationController {
         boolean removed = MOCK_TASKS.removeIf(t -> taskId.equals(t.get("taskId")));
 
         if (removed) {
-            return Result.success(null, "任务已删除");
+            return Result.ok(null).message("任务已删除");
         } else {
-            return Result.failed("任务不存在");
+            return Result.fail("任务不存在").message("任务不存在");
         }
     }
 }
