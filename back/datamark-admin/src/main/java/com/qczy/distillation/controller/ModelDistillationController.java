@@ -1,4 +1,4 @@
-package com.qczy.controller.distillation;
+package com.qczy.distillation.controller;
 
 import com.qczy.common.result.Result;
 import com.qczy.distillation.model.entity.MdTrainingTaskEntity;
