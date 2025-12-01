@@ -44,6 +44,13 @@ public class MdTrainingTaskEntity {
     private String taskName;
 
     /**
+     * 任务描述
+     */
+    @TableField("description")
+    @ApiModelProperty(value = "任务描述")
+    private String description;
+
+    /**
      * 任务输入名称
      */
     @TableField("task_input_name")
@@ -135,6 +142,14 @@ public class MdTrainingTaskEntity {
     @ApiModelProperty(value = "LoRA dropout率")
     private BigDecimal loraDropout;
 
+    /**
+     * 训练高级配置（JSON格式）
+     * 包含：优化器、调度器、GPU配置、梯度配置、模型详细配置等
+     */
+    @TableField("training_config")
+    @ApiModelProperty(value = "训练高级配置（JSON格式）")
+    private String trainingConfig;
+
     // ========== 训练状态 ==========
 
     /**
@@ -189,6 +204,20 @@ public class MdTrainingTaskEntity {
     @TableField("dataset_name")
     @ApiModelProperty(value = "数据集名称")
     private String datasetName;
+
+    /**
+     * 验证数据集ID
+     */
+    @TableField("val_dataset_id")
+    @ApiModelProperty(value = "验证数据集ID")
+    private Long valDatasetId;
+
+    /**
+     * 验证数据集名称
+     */
+    @TableField("val_dataset_name")
+    @ApiModelProperty(value = "验证数据集名称")
+    private String valDatasetName;
 
     // ========== 模型文件路径 ==========
 

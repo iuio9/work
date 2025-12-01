@@ -1,6 +1,9 @@
 package com.qczy.distillation.controller;
 
+import com.alibaba.fastjson.JSON;
 import com.qczy.common.result.Result;
+import com.qczy.distillation.model.dto.CreateTaskRequestDTO;
+import com.qczy.distillation.model.dto.TrainingConfigDTO;
 import com.qczy.distillation.model.entity.MdTrainingTaskEntity;
 import com.qczy.distillation.model.entity.MdTrainingHistoryEntity;
 import com.qczy.distillation.model.entity.MdLoraPresetEntity;
@@ -13,7 +16,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * 大小模型协同训练（Model Distillation）控制器
@@ -81,31 +86,112 @@ public class ModelDistillationController {
 
     @PostMapping("/tasks")
     @ApiOperation("创建训练任务")
-    public Result<?> createTask(@RequestBody MdTrainingTaskEntity taskData) {
+    public Result<?> createTask(@RequestBody CreateTaskRequestDTO requestDTO) {
         try {
-            // 设置默认值
-            if (taskData.getTotalEpochs() == null) {
-                taskData.setTotalEpochs(50);
+            // 1. 创建Entity对象并设置基础字段
+            MdTrainingTaskEntity task = new MdTrainingTaskEntity();
+
+            // 基础信息
+            task.setTaskName(requestDTO.getTaskName());
+            task.setDescription(requestDTO.getDescription());
+
+            // 模型配置
+            task.setTeacherModel(requestDTO.getTeacherModel());
+            task.setStudentModel(requestDTO.getStudentModel());
+
+            // 数据集
+            task.setDatasetId(requestDTO.getDatasetId());
+            task.setValDatasetId(requestDTO.getValDatasetId());
+
+            // 基础训练参数
+            task.setTotalEpochs(requestDTO.getEpochs() != null ? requestDTO.getEpochs() : 50);
+            task.setBatchSize(requestDTO.getBatchSize() != null ? requestDTO.getBatchSize() : 32);
+            task.setLearningRate(requestDTO.getLearningRate() != null ?
+                    requestDTO.getLearningRate() : BigDecimal.valueOf(0.001));
+
+            // LoRA配置
+            task.setLoraRank(requestDTO.getLoraRank() != null ? requestDTO.getLoraRank() : 16);
+            task.setLoraAlpha(requestDTO.getLoraAlpha() != null ? requestDTO.getLoraAlpha() : 32);
+            task.setLoraDropout(requestDTO.getLoraDropout() != null ?
+                    requestDTO.getLoraDropout() : BigDecimal.valueOf(0.05));
+
+            // 知识蒸馏参数
+            task.setTemperature(requestDTO.getTemperature() != null ?
+                    requestDTO.getTemperature() : BigDecimal.valueOf(3.0));
+            task.setAlpha(requestDTO.getAlpha() != null ?
+                    requestDTO.getAlpha() : BigDecimal.valueOf(0.7));
+
+            // 2. 构建高级配置JSON
+            TrainingConfigDTO config = new TrainingConfigDTO();
+
+            // 优化器和调度器
+            config.setOptimizer(requestDTO.getOptimizer());
+            config.setLrScheduler(requestDTO.getLrScheduler());
+            config.setWeightDecay(requestDTO.getWeightDecay());
+            config.setGradAccumSteps(requestDTO.getGradAccumSteps());
+            config.setMaxGradNorm(requestDTO.getMaxGradNorm());
+
+            // 硬件配置
+            if (requestDTO.getGpuDevices() != null && !requestDTO.getGpuDevices().isEmpty()) {
+                List<Integer> gpuList = Arrays.stream(requestDTO.getGpuDevices().split(","))
+                        .map(String::trim)
+                        .map(Integer::parseInt)
+                        .collect(Collectors.toList());
+                config.setGpuDevices(gpuList);
             }
-            if (taskData.getBatchSize() == null) {
-                taskData.setBatchSize(32);
-            }
-            if (taskData.getLearningRate() == null) {
-                taskData.setLearningRate(BigDecimal.valueOf(0.001));
-            }
-            if (taskData.getTemperature() == null) {
-                taskData.setTemperature(BigDecimal.valueOf(3.0));
-            }
-            if (taskData.getAlpha() == null) {
-                taskData.setAlpha(BigDecimal.valueOf(0.7));
-            }
-            if (taskData.getLoraRank() == null) {
-                taskData.setLoraRank(16);
+            config.setAutoSaveCheckpoint(requestDTO.getAutoSaveCheckpoint());
+            config.setCheckpointInterval(requestDTO.getCheckpointInterval());
+
+            // 教师模型详细配置
+            if (requestDTO.getTeacherParamSize() != null || requestDTO.getTeacherModelPath() != null) {
+                TrainingConfigDTO.TeacherModelConfig teacherConfig = new TrainingConfigDTO.TeacherModelConfig();
+                teacherConfig.setParamSize(requestDTO.getTeacherParamSize());
+                teacherConfig.setModelPath(requestDTO.getTeacherModelPath());
+                teacherConfig.setQuantization(requestDTO.getTeacherQuantization());
+                config.setTeacherModelConfig(teacherConfig);
             }
 
-            MdTrainingTaskEntity newTask = trainingTaskService.createTask(taskData);
+            // 学生模型详细配置
+            if (requestDTO.getStudentParamSize() != null || requestDTO.getStudentInitMethod() != null) {
+                TrainingConfigDTO.StudentModelConfig studentConfig = new TrainingConfigDTO.StudentModelConfig();
+                studentConfig.setParamSize(requestDTO.getStudentParamSize());
+                studentConfig.setInitMethod(requestDTO.getStudentInitMethod());
+                studentConfig.setPretrainPath(requestDTO.getStudentPretrainPath());
+                config.setStudentModelConfig(studentConfig);
+            }
+
+            // LoRA高级配置
+            if (requestDTO.getLoraTargetModules() != null || requestDTO.getLoraLayers() != null) {
+                TrainingConfigDTO.LoraAdvancedConfig loraConfig = new TrainingConfigDTO.LoraAdvancedConfig();
+                if (requestDTO.getLoraTargetModules() != null) {
+                    loraConfig.setTargetModules(Arrays.asList(requestDTO.getLoraTargetModules().split(",")));
+                }
+                loraConfig.setLayers(requestDTO.getLoraLayers());
+                loraConfig.setBiasTrain(requestDTO.getLoraBiasTrain());
+                config.setLoraAdvancedConfig(loraConfig);
+            }
+
+            // 知识蒸馏高级配置
+            if (requestDTO.getHardLabelWeight() != null || requestDTO.getSoftLabelWeight() != null) {
+                TrainingConfigDTO.DistillationAdvancedConfig distillConfig =
+                        new TrainingConfigDTO.DistillationAdvancedConfig();
+                distillConfig.setHardLabelWeight(requestDTO.getHardLabelWeight());
+                distillConfig.setSoftLabelWeight(requestDTO.getSoftLabelWeight());
+                distillConfig.setLossType(requestDTO.getDistillLossType());
+                distillConfig.setIntermediateLayers(requestDTO.getIntermediateLayers());
+                distillConfig.setAttentionDistill(requestDTO.getAttentionDistill());
+                config.setDistillationAdvancedConfig(distillConfig);
+            }
+
+            // 3. 将配置对象序列化为JSON字符串
+            String trainingConfigJson = JSON.toJSONString(config);
+            task.setTrainingConfig(trainingConfigJson);
+
+            // 4. 调用Service创建任务
+            MdTrainingTaskEntity newTask = trainingTaskService.createTask(task);
             return Result.ok(newTask).message("任务创建成功");
         } catch (Exception e) {
+            e.printStackTrace();
             return Result.fail(null).message("创建任务失败: " + e.getMessage());
         }
     }
