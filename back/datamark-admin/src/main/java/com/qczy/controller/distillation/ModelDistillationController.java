@@ -1,15 +1,19 @@
 package com.qczy.controller.distillation;
 
 import com.qczy.common.result.Result;
+import com.qczy.distillation.model.entity.MdTrainingTaskEntity;
+import com.qczy.distillation.model.entity.MdTrainingHistoryEntity;
+import com.qczy.distillation.model.entity.MdLoraPresetEntity;
+import com.qczy.distillation.model.entity.MdModelEvaluationEntity;
+import com.qczy.distillation.service.MdTrainingTaskService;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.*;
-import java.util.stream.Collectors;
+import java.math.BigDecimal;
+import java.util.List;
 
 /**
  * 大小模型协同训练（Model Distillation）控制器
@@ -24,132 +28,20 @@ import java.util.stream.Collectors;
 @CrossOrigin
 public class ModelDistillationController {
 
-    // 模拟数据存储（实际项目应使用数据库）
-    private static final List<Map<String, Object>> MOCK_TASKS = new ArrayList<>();
+    @Autowired
+    private MdTrainingTaskService trainingTaskService;
 
-    static {
-        // 初始化一些模拟数据
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-
-        MOCK_TASKS.add(createMockTask(
-            "TASK_001",
-            "目标检测协同训练-YOLOv5",
-            "llama2-7b",
-            "yolov5s",
-            "COMPLETED",
-            92.5,
-            50,
-            32,
-            0.001,
-            3.0,
-            0.7,
-            16,
-            LocalDateTime.now().minusDays(2).format(formatter)
-        ));
-
-        MOCK_TASKS.add(createMockTask(
-            "TASK_002",
-            "图像分类协同训练-ResNet",
-            "qwen-7b",
-            "resnet50",
-            "COMPLETED",
-            88.3,
-            40,
-            64,
-            0.0005,
-            2.5,
-            0.6,
-            8,
-            LocalDateTime.now().minusDays(5).format(formatter)
-        ));
-
-        MOCK_TASKS.add(createMockTask(
-            "TASK_003",
-            "语义分割协同训练-UNet",
-            "llama2-13b",
-            "unet",
-            "COMPLETED",
-            85.7,
-            60,
-            16,
-            0.002,
-            4.0,
-            0.8,
-            16,
-            LocalDateTime.now().minusDays(7).format(formatter)
-        ));
-
-        MOCK_TASKS.add(createMockTask(
-            "TASK_004",
-            "序列预测协同训练-LSTM",
-            "qwen-14b",
-            "lstm",
-            "RUNNING",
-            null,
-            30,
-            32,
-            0.001,
-            3.5,
-            0.7,
-            8,
-            LocalDateTime.now().minusHours(3).format(formatter)
-        ));
-
-        MOCK_TASKS.add(createMockTask(
-            "TASK_005",
-            "视觉Transformer协同训练",
-            "llama2-7b",
-            "vit",
-            "COMPLETED",
-            90.2,
-            45,
-            32,
-            0.0008,
-            3.0,
-            0.65,
-            16,
-            LocalDateTime.now().minusDays(10).format(formatter)
-        ));
-    }
-
-    private static Map<String, Object> createMockTask(
-        String taskId,
-        String taskName,
-        String teacherModel,
-        String studentModel,
-        String status,
-        Double accuracy,
-        int totalEpochs,
-        int batchSize,
-        double learningRate,
-        double temperature,
-        double alpha,
-        int loraRank,
-        String createTime
-    ) {
-        Map<String, Object> task = new HashMap<>();
-        task.put("taskId", taskId);
-        task.put("taskName", taskName);
-        task.put("teacherModel", teacherModel);
-        task.put("studentModel", studentModel);
-        task.put("status", status);
-        task.put("accuracy", accuracy);
-        task.put("totalEpochs", totalEpochs);
-        task.put("currentEpoch", status.equals("COMPLETED") ? totalEpochs : (int)(Math.random() * totalEpochs));
-        task.put("batchSize", batchSize);
-        task.put("learningRate", learningRate);
-        task.put("temperature", temperature);
-        task.put("alpha", alpha);
-        task.put("loraRank", loraRank);
-        task.put("createTime", createTime);
-        task.put("updateTime", createTime);
-        return task;
-    }
+    // ========== 训练任务管理 ==========
 
     @GetMapping("/tasks")
     @ApiOperation("获取所有训练任务")
     public Result<?> getAllTasks() {
-        return Result.ok(MOCK_TASKS);
+        try {
+            List<MdTrainingTaskEntity> tasks = trainingTaskService.getAllTasks();
+            return Result.ok(tasks);
+        } catch (Exception e) {
+            return Result.fail(null).message("获取任务列表失败: " + e.getMessage());
+        }
     }
 
     @GetMapping("/completed-models")
@@ -159,120 +51,362 @@ public class ModelDistillationController {
         @ApiParam("教师模型") @RequestParam(required = false) String teacherModel,
         @ApiParam("学生模型") @RequestParam(required = false) String studentModel
     ) {
-        // 筛选已完成的任务
-        List<Map<String, Object>> completedTasks = MOCK_TASKS.stream()
-            .filter(task -> "COMPLETED".equals(task.get("status")))
-            .filter(task -> {
-                if (minAccuracy != null && task.get("accuracy") != null) {
-                    return (Double) task.get("accuracy") >= minAccuracy;
-                }
-                return true;
-            })
-            .filter(task -> {
-                if (teacherModel != null && !teacherModel.isEmpty()) {
-                    return teacherModel.equals(task.get("teacherModel"));
-                }
-                return true;
-            })
-            .filter(task -> {
-                if (studentModel != null && !studentModel.isEmpty()) {
-                    return studentModel.equals(task.get("studentModel"));
-                }
-                return true;
-            })
-            .collect(Collectors.toList());
+        try {
+            BigDecimal minAccuracyDecimal = minAccuracy != null ?
+                    BigDecimal.valueOf(minAccuracy) : null;
 
-        return Result.ok(completedTasks);
+            List<MdTrainingTaskEntity> completedTasks = trainingTaskService.getCompletedTasks(
+                    minAccuracyDecimal, teacherModel, studentModel);
+
+            return Result.ok(completedTasks);
+        } catch (Exception e) {
+            return Result.fail(null).message("获取已完成任务失败: " + e.getMessage());
+        }
     }
 
     @GetMapping("/tasks/{taskId}")
     @ApiOperation("获取任务详情")
     public Result<?> getTaskDetail(@PathVariable String taskId) {
-        Optional<Map<String, Object>> task = MOCK_TASKS.stream()
-            .filter(t -> taskId.equals(t.get("taskId")))
-            .findFirst();
-
-        if (task.isPresent()) {
-            return Result.ok(task.get());
-        } else {
-            return Result.fail("任务不存在").message("任务不存在");
+        try {
+            MdTrainingTaskEntity task = trainingTaskService.getTaskByTaskId(taskId);
+            if (task != null) {
+                return Result.ok(task);
+            } else {
+                return Result.fail(null).message("任务不存在");
+            }
+        } catch (Exception e) {
+            return Result.fail(null).message("获取任务详情失败: " + e.getMessage());
         }
     }
 
     @PostMapping("/tasks")
     @ApiOperation("创建训练任务")
-    public Result<?> createTask(@RequestBody Map<String, Object> taskData) {
-        String taskId = "TASK_" + String.format("%03d", MOCK_TASKS.size() + 1);
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-        String now = LocalDateTime.now().format(formatter);
+    public Result<?> createTask(@RequestBody MdTrainingTaskEntity taskData) {
+        try {
+            // 设置默认值
+            if (taskData.getTotalEpochs() == null) {
+                taskData.setTotalEpochs(50);
+            }
+            if (taskData.getBatchSize() == null) {
+                taskData.setBatchSize(32);
+            }
+            if (taskData.getLearningRate() == null) {
+                taskData.setLearningRate(BigDecimal.valueOf(0.001));
+            }
+            if (taskData.getTemperature() == null) {
+                taskData.setTemperature(BigDecimal.valueOf(3.0));
+            }
+            if (taskData.getAlpha() == null) {
+                taskData.setAlpha(BigDecimal.valueOf(0.7));
+            }
+            if (taskData.getLoraRank() == null) {
+                taskData.setLoraRank(16);
+            }
 
-        Map<String, Object> newTask = new HashMap<>();
-        newTask.put("taskId", taskId);
-        newTask.put("taskName", taskData.get("taskName"));
-        newTask.put("teacherModel", taskData.get("teacherModel"));
-        newTask.put("studentModel", taskData.get("studentModel"));
-        newTask.put("status", "PENDING");
-        newTask.put("accuracy", null);
-        newTask.put("totalEpochs", taskData.get("totalEpochs"));
-        newTask.put("currentEpoch", 0);
-        newTask.put("batchSize", taskData.get("batchSize"));
-        newTask.put("learningRate", taskData.get("learningRate"));
-        newTask.put("temperature", taskData.get("temperature"));
-        newTask.put("alpha", taskData.get("alpha"));
-        newTask.put("loraRank", taskData.get("loraRank"));
-        newTask.put("createTime", now);
-        newTask.put("updateTime", now);
-
-        MOCK_TASKS.add(newTask);
-
-        return Result.ok(newTask).message("任务创建成功");
+            MdTrainingTaskEntity newTask = trainingTaskService.createTask(taskData);
+            return Result.ok(newTask).message("任务创建成功");
+        } catch (Exception e) {
+            return Result.fail(null).message("创建任务失败: " + e.getMessage());
+        }
     }
 
     @PostMapping("/tasks/{taskId}/start")
     @ApiOperation("启动训练任务")
     public Result<?> startTask(@PathVariable String taskId) {
-        Optional<Map<String, Object>> taskOpt = MOCK_TASKS.stream()
-            .filter(t -> taskId.equals(t.get("taskId")))
-            .findFirst();
-
-        if (taskOpt.isPresent()) {
-            Map<String, Object> task = taskOpt.get();
-            task.put("status", "RUNNING");
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-            task.put("updateTime", LocalDateTime.now().format(formatter));
-            return Result.ok(task).message("任务已启动");
-        } else {
-            return Result.fail("任务不存在").message("任务不存在");
+        try {
+            boolean success = trainingTaskService.startTask(taskId);
+            if (success) {
+                MdTrainingTaskEntity task = trainingTaskService.getTaskByTaskId(taskId);
+                return Result.ok(task).message("任务已启动");
+            } else {
+                return Result.fail(null).message("启动任务失败");
+            }
+        } catch (Exception e) {
+            return Result.fail(null).message("启动任务失败: " + e.getMessage());
         }
     }
 
     @PostMapping("/tasks/{taskId}/stop")
     @ApiOperation("停止训练任务")
     public Result<?> stopTask(@PathVariable String taskId) {
-        Optional<Map<String, Object>> taskOpt = MOCK_TASKS.stream()
-            .filter(t -> taskId.equals(t.get("taskId")))
-            .findFirst();
+        try {
+            boolean success = trainingTaskService.stopTask(taskId);
+            if (success) {
+                MdTrainingTaskEntity task = trainingTaskService.getTaskByTaskId(taskId);
+                return Result.ok(task).message("任务已停止");
+            } else {
+                return Result.fail(null).message("停止任务失败");
+            }
+        } catch (Exception e) {
+            return Result.fail(null).message("停止任务失败: " + e.getMessage());
+        }
+    }
 
-        if (taskOpt.isPresent()) {
-            Map<String, Object> task = taskOpt.get();
-            task.put("status", "STOPPED");
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-            task.put("updateTime", LocalDateTime.now().format(formatter));
-            return Result.ok(task).message("任务已停止");
-        } else {
-            return Result.fail("任务不存在").message("任务不存在");
+    @PostMapping("/tasks/{taskId}/complete")
+    @ApiOperation("完成训练任务")
+    public Result<?> completeTask(@PathVariable String taskId) {
+        try {
+            boolean success = trainingTaskService.completeTask(taskId);
+            if (success) {
+                MdTrainingTaskEntity task = trainingTaskService.getTaskByTaskId(taskId);
+                return Result.ok(task).message("任务已完成");
+            } else {
+                return Result.fail(null).message("完成任务失败");
+            }
+        } catch (Exception e) {
+            return Result.fail(null).message("完成任务失败: " + e.getMessage());
         }
     }
 
     @DeleteMapping("/tasks/{taskId}")
     @ApiOperation("删除训练任务")
     public Result<?> deleteTask(@PathVariable String taskId) {
-        boolean removed = MOCK_TASKS.removeIf(t -> taskId.equals(t.get("taskId")));
+        try {
+            boolean success = trainingTaskService.deleteTask(taskId);
+            if (success) {
+                return Result.ok(null).message("任务已删除");
+            } else {
+                return Result.fail(null).message("删除任务失败");
+            }
+        } catch (Exception e) {
+            return Result.fail(null).message("删除任务失败: " + e.getMessage());
+        }
+    }
 
-        if (removed) {
-            return Result.ok(null).message("任务已删除");
-        } else {
-            return Result.fail("任务不存在").message("任务不存在");
+    @PutMapping("/tasks/{taskId}/progress")
+    @ApiOperation("更新训练进度")
+    public Result<?> updateProgress(
+            @PathVariable String taskId,
+            @RequestParam int currentEpoch,
+            @RequestParam(required = false) Double accuracy,
+            @RequestParam(required = false) Double loss
+    ) {
+        try {
+            BigDecimal accuracyDecimal = accuracy != null ? BigDecimal.valueOf(accuracy) : null;
+            BigDecimal lossDecimal = loss != null ? BigDecimal.valueOf(loss) : null;
+
+            boolean success = trainingTaskService.updateProgress(
+                    taskId, currentEpoch, accuracyDecimal, lossDecimal);
+
+            if (success) {
+                MdTrainingTaskEntity task = trainingTaskService.getTaskByTaskId(taskId);
+                return Result.ok(task).message("进度更新成功");
+            } else {
+                return Result.fail(null).message("更新进度失败");
+            }
+        } catch (Exception e) {
+            return Result.fail(null).message("更新进度失败: " + e.getMessage());
+        }
+    }
+
+    @PutMapping("/tasks/{taskId}/model-path")
+    @ApiOperation("更新模型文件路径")
+    public Result<?> updateModelPath(
+            @PathVariable String taskId,
+            @RequestParam String modelPath,
+            @RequestParam String modelUrl
+    ) {
+        try {
+            boolean success = trainingTaskService.updateModelPath(taskId, modelPath, modelUrl);
+            if (success) {
+                return Result.ok(null).message("模型路径更新成功");
+            } else {
+                return Result.fail(null).message("更新模型路径失败");
+            }
+        } catch (Exception e) {
+            return Result.fail(null).message("更新模型路径失败: " + e.getMessage());
+        }
+    }
+
+    @PutMapping("/tasks/{taskId}/error")
+    @ApiOperation("更新任务错误信息")
+    public Result<?> updateError(
+            @PathVariable String taskId,
+            @RequestParam String errorMessage
+    ) {
+        try {
+            boolean success = trainingTaskService.updateError(taskId, errorMessage);
+            if (success) {
+                return Result.ok(null).message("错误信息已记录");
+            } else {
+                return Result.fail(null).message("记录错误信息失败");
+            }
+        } catch (Exception e) {
+            return Result.fail(null).message("记录错误信息失败: " + e.getMessage());
+        }
+    }
+
+    // ========== 训练历史记录 ==========
+
+    @GetMapping("/tasks/{taskId}/history")
+    @ApiOperation("获取任务训练历史")
+    public Result<?> getTaskHistory(@PathVariable String taskId) {
+        try {
+            List<MdTrainingHistoryEntity> history = trainingTaskService.getTaskHistory(taskId);
+            return Result.ok(history);
+        } catch (Exception e) {
+            return Result.fail(null).message("获取训练历史失败: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/tasks/{taskId}/history/latest")
+    @ApiOperation("获取任务最新训练记录")
+    public Result<?> getLatestHistory(
+            @PathVariable String taskId,
+            @RequestParam(defaultValue = "10") int limit
+    ) {
+        try {
+            List<MdTrainingHistoryEntity> history =
+                    trainingTaskService.getLatestHistory(taskId, limit);
+            return Result.ok(history);
+        } catch (Exception e) {
+            return Result.fail(null).message("获取最新训练记录失败: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/tasks/{taskId}/history")
+    @ApiOperation("记录训练历史")
+    public Result<?> recordHistory(@RequestBody MdTrainingHistoryEntity history) {
+        try {
+            boolean success = trainingTaskService.recordHistory(history);
+            if (success) {
+                return Result.ok(null).message("训练历史已记录");
+            } else {
+                return Result.fail(null).message("记录训练历史失败");
+            }
+        } catch (Exception e) {
+            return Result.fail(null).message("记录训练历史失败: " + e.getMessage());
+        }
+    }
+
+    // ========== LoRA预设管理 ==========
+
+    @GetMapping("/lora-presets")
+    @ApiOperation("获取所有LoRA预设")
+    public Result<?> getAllLoraPresets() {
+        try {
+            List<MdLoraPresetEntity> presets = trainingTaskService.getAllLoraPresets();
+            return Result.ok(presets);
+        } catch (Exception e) {
+            return Result.fail(null).message("获取LoRA预设失败: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/lora-presets/{presetName}")
+    @ApiOperation("根据名称获取LoRA预设")
+    public Result<?> getLoraPresetByName(@PathVariable String presetName) {
+        try {
+            MdLoraPresetEntity preset = trainingTaskService.getLoraPresetByName(presetName);
+            if (preset != null) {
+                return Result.ok(preset);
+            } else {
+                return Result.fail(null).message("预设不存在");
+            }
+        } catch (Exception e) {
+            return Result.fail(null).message("获取LoRA预设失败: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/lora-presets")
+    @ApiOperation("创建LoRA预设")
+    public Result<?> createLoraPreset(@RequestBody MdLoraPresetEntity preset) {
+        try {
+            boolean success = trainingTaskService.createLoraPreset(preset);
+            if (success) {
+                return Result.ok(preset).message("LoRA预设创建成功");
+            } else {
+                return Result.fail(null).message("LoRA预设名称已存在");
+            }
+        } catch (Exception e) {
+            return Result.fail(null).message("创建LoRA预设失败: " + e.getMessage());
+        }
+    }
+
+    // ========== 模型评估 ==========
+
+    @GetMapping("/tasks/{taskId}/evaluations")
+    @ApiOperation("获取任务评估结果")
+    public Result<?> getTaskEvaluations(@PathVariable String taskId) {
+        try {
+            List<MdModelEvaluationEntity> evaluations =
+                    trainingTaskService.getTaskEvaluations(taskId);
+            return Result.ok(evaluations);
+        } catch (Exception e) {
+            return Result.fail(null).message("获取评估结果失败: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/tasks/{taskId}/evaluations/latest")
+    @ApiOperation("获取任务最新评估结果")
+    public Result<?> getLatestEvaluation(@PathVariable String taskId) {
+        try {
+            MdModelEvaluationEntity evaluation =
+                    trainingTaskService.getLatestEvaluation(taskId);
+            return Result.ok(evaluation);
+        } catch (Exception e) {
+            return Result.fail(null).message("获取最新评估结果失败: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/tasks/{taskId}/evaluations/best")
+    @ApiOperation("获取任务最佳评估结果")
+    public Result<?> getBestEvaluation(@PathVariable String taskId) {
+        try {
+            MdModelEvaluationEntity evaluation =
+                    trainingTaskService.getBestEvaluation(taskId);
+            return Result.ok(evaluation);
+        } catch (Exception e) {
+            return Result.fail(null).message("获取最佳评估结果失败: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/tasks/{taskId}/evaluations")
+    @ApiOperation("保存模型评估结果")
+    public Result<?> saveEvaluation(@RequestBody MdModelEvaluationEntity evaluation) {
+        try {
+            boolean success = trainingTaskService.saveEvaluation(evaluation);
+            if (success) {
+                return Result.ok(null).message("评估结果已保存");
+            } else {
+                return Result.fail(null).message("保存评估结果失败");
+            }
+        } catch (Exception e) {
+            return Result.fail(null).message("保存评估结果失败: " + e.getMessage());
+        }
+    }
+
+    // ========== 统计信息 ==========
+
+    @GetMapping("/tasks/running")
+    @ApiOperation("获取正在运行的任务")
+    public Result<?> getRunningTasks() {
+        try {
+            List<MdTrainingTaskEntity> tasks = trainingTaskService.getRunningTasks();
+            return Result.ok(tasks);
+        } catch (Exception e) {
+            return Result.fail(null).message("获取运行中任务失败: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/tasks/status/{status}")
+    @ApiOperation("按状态查询任务")
+    public Result<?> getTasksByStatus(@PathVariable String status) {
+        try {
+            List<MdTrainingTaskEntity> tasks = trainingTaskService.getTasksByStatus(status);
+            return Result.ok(tasks);
+        } catch (Exception e) {
+            return Result.fail(null).message("查询任务失败: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/tasks/recent")
+    @ApiOperation("获取最近的任务")
+    public Result<?> getRecentTasks(@RequestParam(defaultValue = "10") int limit) {
+        try {
+            List<MdTrainingTaskEntity> tasks = trainingTaskService.getRecentTasks(limit);
+            return Result.ok(tasks);
+        } catch (Exception e) {
+            return Result.fail(null).message("获取最近任务失败: " + e.getMessage());
         }
     }
 }
