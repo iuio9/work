@@ -28,10 +28,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, Dataset
+from torchvision import transforms
+from PIL import Image
 from transformers import (
     AutoConfig,
-    AutoModelForSequenceClassification,
-    AutoTokenizer,
+    AutoModelForImageClassification,
+    AutoImageProcessor,
     get_cosine_schedule_with_warmup,
     get_linear_schedule_with_warmup,
 )
@@ -105,28 +107,68 @@ class TrainingConfig:
 
 # ==================== 数据集类 ====================
 
-class DummyDataset(Dataset):
+class ImageAnnotationDataset(Dataset):
     """
-    示例数据集（实际使用时需要替换为真实数据集）
-    这里使用随机数据进行演示
+    图像标注数据集
+    支持：图像分类、目标检测
+
+    实际使用时需要从数据库加载真实的图像标注数据
     """
 
-    def __init__(self, num_samples: int = 1000, max_length: int = 128):
+    def __init__(
+        self,
+        dataset_path: str,
+        image_processor,
+        num_samples: int = 1000,
+        image_size: int = 224,
+        num_classes: int = None
+    ):
+        self.dataset_path = dataset_path
+        self.image_processor = image_processor
         self.num_samples = num_samples
-        self.max_length = max_length
+        self.image_size = image_size
+        self.num_classes = num_classes
+
+        # 数据增强（训练集）
+        self.transform = transforms.Compose([
+            transforms.Resize((image_size, image_size)),
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomRotation(15),
+            transforms.ColorJitter(brightness=0.2, contrast=0.2),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                               std=[0.229, 0.224, 0.225])
+        ])
 
     def __len__(self):
         return self.num_samples
 
     def __getitem__(self, idx):
-        # 生成随机输入ID和标签
-        input_ids = torch.randint(0, 1000, (self.max_length,))
-        attention_mask = torch.ones(self.max_length)
-        label = torch.randint(0, 2, (1,)).item()
+        # TODO: 从数据库或文件系统加载真实图像
+        # 这里使用随机图像作为演示
+        # 实际实现应该：
+        # 1. 根据dataset_id从数据库查询图像路径
+        # 2. 加载图像文件
+        # 3. 加载对应的标注（类别/边界框等）
+
+        # 生成随机图像（演示用）
+        image = Image.new('RGB', (self.image_size, self.image_size))
+        import numpy as np
+        image_array = np.random.randint(0, 255, (self.image_size, self.image_size, 3), dtype=np.uint8)
+        image = Image.fromarray(image_array)
+
+        # 应用变换
+        pixel_values = self.transform(image)
+
+        # 标签（这里用随机标签演示）
+        # 实际应该从数据库读取真实标注
+        if self.num_classes:
+            label = torch.randint(0, self.num_classes, (1,)).item()
+        else:
+            label = torch.randint(0, 10, (1,)).item()  # 默认10个类别
 
         return {
-            'input_ids': input_ids,
-            'attention_mask': attention_mask,
+            'pixel_values': pixel_values,
             'labels': label
         }
 
@@ -158,27 +200,33 @@ class DistillationTrainer:
         return device
 
     def load_models(self):
-        """加载教师模型和学生模型"""
+        """加载教师模型和学生模型（图像分类）"""
         print(f"\n{'='*60}")
-        print("📚 加载模型...")
+        print("📚 加载图像分类模型...")
         print(f"{'='*60}")
 
-        # 加载分词器
-        print(f"正在加载分词器: {self.config.teacher_path}")
-        self.tokenizer = AutoTokenizer.from_pretrained(
+        # 加载图像处理器
+        print(f"正在加载图像处理器: {self.config.teacher_path}")
+        self.image_processor = AutoImageProcessor.from_pretrained(
             self.config.teacher_path,
             trust_remote_code=True
         )
 
-        # 加载教师模型
+        # 确定类别数（从配置或默认）
+        # TODO: 从数据库读取实际的类别数
+        num_classes = getattr(self.config, 'num_classes', 10)  # 默认10个类别
+        print(f"类别数: {num_classes}")
+
+        # 加载教师模型（图像分类）
         print(f"正在加载教师模型: {self.config.teacher_path}")
         teacher_config = AutoConfig.from_pretrained(self.config.teacher_path)
-        teacher_config.num_labels = 2  # 二分类任务
+        teacher_config.num_labels = num_classes
 
-        self.teacher_model = AutoModelForSequenceClassification.from_pretrained(
+        self.teacher_model = AutoModelForImageClassification.from_pretrained(
             self.config.teacher_path,
             config=teacher_config,
-            trust_remote_code=True
+            trust_remote_code=True,
+            ignore_mismatched_sizes=True  # 允许类别数不匹配
         )
         self.teacher_model.to(self.device)
         self.teacher_model.eval()  # 教师模型设为评估模式
@@ -190,21 +238,31 @@ class DistillationTrainer:
         print(f"✓ 教师模型加载成功，参数量: {sum(p.numel() for p in self.teacher_model.parameters()):,}")
 
         # 加载学生模型
-        print(f"正在加载学生模型: {self.config.student_path or '随机初始化'}")
-        student_config = AutoConfig.from_pretrained(
-            self.config.student_path or self.config.teacher_path
-        )
-        student_config.num_labels = 2
+        print(f"正在加载学生模型: {self.config.student_path or '基于教师模型创建'}")
 
-        # 根据配置创建更小的学生模型
-        if not self.config.student_path:
-            student_config.num_hidden_layers = 6  # 减少层数
-            student_config.hidden_size = 384  # 减少隐藏层大小
-            student_config.num_attention_heads = 6
+        if self.config.student_path:
+            # 从预训练模型加载
+            student_config = AutoConfig.from_pretrained(self.config.student_path)
+            student_config.num_labels = num_classes
+            self.student_model = AutoModelForImageClassification.from_pretrained(
+                self.config.student_path,
+                config=student_config,
+                ignore_mismatched_sizes=True
+            )
+        else:
+            # 创建更小的学生模型
+            student_config = AutoConfig.from_pretrained(self.config.teacher_path)
+            student_config.num_labels = num_classes
 
-        self.student_model = AutoModelForSequenceClassification.from_config(
-            student_config
-        )
+            # 减小模型尺寸（根据模型类型调整）
+            if hasattr(student_config, 'num_hidden_layers'):
+                student_config.num_hidden_layers = max(6, student_config.num_hidden_layers // 2)
+            if hasattr(student_config, 'hidden_size'):
+                student_config.hidden_size = max(384, student_config.hidden_size // 2)
+            if hasattr(student_config, 'intermediate_size'):
+                student_config.intermediate_size = max(1536, student_config.intermediate_size // 2)
+
+            self.student_model = AutoModelForImageClassification.from_config(student_config)
 
         # 应用LoRA配置
         self._apply_lora()
@@ -223,7 +281,7 @@ class DistillationTrainer:
         print(f"  Target Modules: {self.config.lora_target_modules or 'default'}")
 
         lora_config = LoraConfig(
-            task_type=TaskType.SEQ_CLS,
+            task_type=TaskType.IMAGE_CLASSIFICATION,  # 图像分类任务
             inference_mode=False,
             r=self.config.lora_rank,
             lora_alpha=self.config.lora_alpha,
@@ -343,7 +401,7 @@ class DistillationTrainer:
         train_loader: DataLoader,
         epoch: int
     ) -> Dict[str, float]:
-        """训练一个epoch"""
+        """训练一个epoch（图像分类）"""
         self.student_model.train()
 
         total_loss = 0
@@ -356,23 +414,16 @@ class DistillationTrainer:
 
         for batch_idx, batch in enumerate(train_loader):
             # 将数据移到设备
-            input_ids = batch['input_ids'].to(self.device)
-            attention_mask = batch['attention_mask'].to(self.device)
+            pixel_values = batch['pixel_values'].to(self.device)
             labels = batch['labels'].to(self.device)
 
             # 教师模型前向传播（不计算梯度）
             with torch.no_grad():
-                teacher_outputs = self.teacher_model(
-                    input_ids=input_ids,
-                    attention_mask=attention_mask
-                )
+                teacher_outputs = self.teacher_model(pixel_values=pixel_values)
                 teacher_logits = teacher_outputs.logits
 
             # 学生模型前向传播
-            student_outputs = self.student_model(
-                input_ids=input_ids,
-                attention_mask=attention_mask
-            )
+            student_outputs = self.student_model(pixel_values=pixel_values)
             student_logits = student_outputs.logits
 
             # 计算损失
@@ -427,7 +478,7 @@ class DistillationTrainer:
 
     @torch.no_grad()
     def evaluate(self, val_loader: DataLoader) -> Dict[str, float]:
-        """评估模型"""
+        """评估模型（图像分类）"""
         self.student_model.eval()
 
         total_loss = 0
@@ -435,15 +486,11 @@ class DistillationTrainer:
         total = 0
 
         for batch in val_loader:
-            input_ids = batch['input_ids'].to(self.device)
-            attention_mask = batch['attention_mask'].to(self.device)
+            pixel_values = batch['pixel_values'].to(self.device)
             labels = batch['labels'].to(self.device)
 
             # 学生模型前向传播
-            outputs = self.student_model(
-                input_ids=input_ids,
-                attention_mask=attention_mask
-            )
+            outputs = self.student_model(pixel_values=pixel_values)
             logits = outputs.logits
 
             # 计算损失
@@ -469,7 +516,7 @@ class DistillationTrainer:
 
         # 保存模型
         self.student_model.save_pretrained(checkpoint_dir)
-        self.tokenizer.save_pretrained(checkpoint_dir)
+        self.image_processor.save_pretrained(checkpoint_dir)
 
         # 保存训练状态
         state = {
@@ -545,9 +592,23 @@ class DistillationTrainer:
             self.load_models()
 
             # 准备数据集（这里使用示例数据，实际需要替换）
-            print(f"\n📊 准备数据集...")
-            train_dataset = DummyDataset(num_samples=1000)
-            val_dataset = DummyDataset(num_samples=200)
+            print(f"\n📊 准备图像数据集...")
+            # TODO: 从数据库加载真实的图像标注数据
+            # 实现建议：
+            # 1. 根据dataset_id查询数据库获取图像路径列表
+            # 2. 读取每张图像对应的标注（类别/边界框）
+            # 3. 创建自定义Dataset类加载数据
+
+            train_dataset = ImageAnnotationDataset(
+                dataset_path=f"/data/datasets/{self.config.dataset_id}",
+                image_processor=self.image_processor,
+                num_samples=1000
+            )
+            val_dataset = ImageAnnotationDataset(
+                dataset_path=f"/data/datasets/{self.config.val_dataset_id or self.config.dataset_id}",
+                image_processor=self.image_processor,
+                num_samples=200
+            )
 
             train_loader = DataLoader(
                 train_dataset,
@@ -616,7 +677,7 @@ class DistillationTrainer:
             print(f"\n💾 保存最终模型...")
             final_model_dir = os.path.join(self.config.output_dir, "final_model")
             self.student_model.save_pretrained(final_model_dir)
-            self.tokenizer.save_pretrained(final_model_dir)
+            self.image_processor.save_pretrained(final_model_dir)
             print(f"✓ 最终模型已保存: {final_model_dir}")
 
             # 标记任务完成
