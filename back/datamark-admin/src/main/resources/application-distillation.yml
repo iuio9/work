@@ -1,0 +1,67 @@
+# 大小模型协同训练配置
+distillation:
+  # Python解释器路径
+  # 建议使用虚拟环境中的Python
+  python:
+    path: python3  # 或者 /path/to/your/venv/bin/python
+
+  # 训练脚本路径
+  script:
+    path: /home/user/work/back/datamark-admin/train_distillation.py
+
+  # 后端API基础URL
+  # 训练脚本通过此URL回调更新进度
+  api:
+    base-url: http://localhost:8080
+
+  # 模型存储根目录
+  models:
+    root: /data/models
+    # 示例结构：
+    # /data/models/
+    #   ├── llama-2-7b/           # 教师模型
+    #   │   ├── config.json
+    #   │   ├── pytorch_model.bin
+    #   │   └── tokenizer.json
+    #   └── distilbert-base/      # 学生模型（可选）
+    #       ├── config.json
+    #       └── pytorch_model.bin
+
+  # 数据集根目录
+  datasets:
+    root: /data/datasets
+    # 示例结构：
+    # /data/datasets/
+    #   ├── dataset_001/
+    #   │   ├── train/
+    #   │   │   ├── data_0001.json
+    #   │   │   └── data_0002.json
+    #   │   └── val/
+    #   │       └── data_val.json
+    #   └── dataset_002/
+    #       └── ...
+
+  # 训练输出根目录
+  output:
+    root: /data/training_output
+    # 自动创建子目录：/data/training_output/{taskId}/
+    # 包含：
+    #   ├── checkpoint-epoch-1/
+    #   ├── checkpoint-epoch-5/
+    #   ├── checkpoint-epoch-10/
+    #   └── final_model/
+    #       ├── adapter_config.json
+    #       ├── adapter_model.bin
+    #       └── tokenizer.json
+
+# Spring异步任务配置
+spring:
+  task:
+    execution:
+      pool:
+        # 核心线程数
+        core-size: 2
+        # 最大线程数
+        max-size: 5
+        # 队列容量
+        queue-capacity: 10

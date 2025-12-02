@@ -36,6 +36,9 @@ public class ModelDistillationController {
     @Autowired
     private MdTrainingTaskService trainingTaskService;
 
+    @Autowired
+    private TrainingExecutionService trainingExecutionService;
+
     // ========== 训练任务管理 ==========
 
     @GetMapping("/tasks")
@@ -200,14 +203,21 @@ public class ModelDistillationController {
     @ApiOperation("启动训练任务")
     public Result<?> startTask(@PathVariable String taskId) {
         try {
+            // 1. 更新任务状态为RUNNING
             boolean success = trainingTaskService.startTask(taskId);
-            if (success) {
-                MdTrainingTaskEntity task = trainingTaskService.getTaskByTaskId(taskId);
-                return Result.ok(task).message("任务已启动");
-            } else {
+            if (!success) {
                 return Result.fail(null).message("启动任务失败");
             }
+
+            // 2. 异步启动训练执行
+            trainingExecutionService.startTrainingAsync(taskId);
+
+            // 3. 返回更新后的任务信息
+            MdTrainingTaskEntity task = trainingTaskService.getTaskByTaskId(taskId);
+            return Result.ok(task).message("任务已启动，正在后台执行训练");
+
         } catch (Exception e) {
+            e.printStackTrace();
             return Result.fail(null).message("启动任务失败: " + e.getMessage());
         }
     }
@@ -216,8 +226,13 @@ public class ModelDistillationController {
     @ApiOperation("停止训练任务")
     public Result<?> stopTask(@PathVariable String taskId) {
         try {
-            boolean success = trainingTaskService.stopTask(taskId);
-            if (success) {
+            // 1. 停止训练进程
+            boolean processStop = trainingExecutionService.stopTraining(taskId);
+
+            // 2. 更新任务状态
+            boolean statusUpdate = trainingTaskService.stopTask(taskId);
+
+            if (processStop || statusUpdate) {
                 MdTrainingTaskEntity task = trainingTaskService.getTaskByTaskId(taskId);
                 return Result.ok(task).message("任务已停止");
             } else {
