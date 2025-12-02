@@ -27,6 +27,8 @@ import { getModelList, trainStart } from "@/service/api/model-manage";
 import { selectDataSetLabel } from "@/service/api/ano";
 import _ from "lodash";
 import SvgIcon from "@/components/custom/svg-icon.vue";
+import VueJsonPretty from 'vue-json-pretty';
+import 'vue-json-pretty/lib/styles.css';
 
 // interface
 interface FormObj {
@@ -234,6 +236,13 @@ const mulSelVals = ref<any>([]);
 
 const prevTaskName = ref<any>(""); // 任务名称
 const nextTaskName = ref<any>("");
+
+// 高级配置相关
+const showAdvancedConfig = ref<boolean>(false); // 是否显示高级配置
+const jsonConfig = ref<any>({}); // JSON配置数据
+const jsonEditorMode = ref<boolean>(false); // JSON编辑模式
+const jsonInputValue = ref<string>(""); // JSON输入值
+const jsonError = ref<string>(""); // JSON错误信息
 
 // methods
 const handleFinish = ({
@@ -544,6 +553,116 @@ async function handleCascaderChange(e: any, row: any) {
 const dialog = useDialog();
 const message = useMessage();
 
+// 高级配置方法
+// 从表单生成JSON配置
+function generateJsonFromForm() {
+  const config: any = {};
+
+  configList.value.forEach((section: any) => {
+    const sectionData: any = {};
+    section.list.forEach((item: any) => {
+      if (item.serverKey) {
+        sectionData[item.serverKey] = item.value;
+      }
+      if (item.serverKey === 'trainPrams' && item.query) {
+        sectionData[item.serverKey] = item.query;
+      }
+    });
+    config[section.name] = sectionData;
+  });
+
+  return config;
+}
+
+// 应用JSON配置到表单
+function applyJsonToForm(config: any) {
+  try {
+    Object.keys(config).forEach((sectionName: string) => {
+      const section = configList.value.find((s: any) => s.name === sectionName);
+      if (section) {
+        const sectionConfig = config[sectionName];
+        section.list.forEach((item: any) => {
+          if (item.serverKey && sectionConfig[item.serverKey] !== undefined) {
+            if (item.serverKey === 'trainPrams') {
+              item.query = sectionConfig[item.serverKey];
+            } else {
+              item.value = sectionConfig[item.serverKey];
+            }
+          }
+        });
+      }
+    });
+    window.$message?.success?.("JSON配置已应用到表单！");
+  } catch (error) {
+    window.$message?.error?.("应用JSON配置失败：" + error);
+  }
+}
+
+// 导出JSON配置
+function exportJsonConfig() {
+  const config = generateJsonFromForm();
+  jsonConfig.value = config;
+
+  // 创建下载链接
+  const dataStr = JSON.stringify(config, null, 2);
+  const dataBlob = new Blob([dataStr], { type: 'application/json' });
+  const url = URL.createObjectURL(dataBlob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `train-config-${Date.now()}.json`;
+  link.click();
+  URL.revokeObjectURL(url);
+
+  window.$message?.success?.("JSON配置已导出！");
+}
+
+// 导入JSON配置
+function handleImportJson(file: File) {
+  const reader = new FileReader();
+  reader.onload = (e: any) => {
+    try {
+      const config = JSON.parse(e.target.result);
+      jsonConfig.value = config;
+      applyJsonToForm(config);
+      jsonInputValue.value = JSON.stringify(config, null, 2);
+    } catch (error) {
+      window.$message?.error?.("JSON文件解析失败：" + error);
+    }
+  };
+  reader.readAsText(file);
+  return false; // 阻止自动上传
+}
+
+// 切换JSON编辑模式
+function toggleJsonEditMode() {
+  if (!jsonEditorMode.value) {
+    // 切换到编辑模式，生成当前配置的JSON
+    jsonConfig.value = generateJsonFromForm();
+    jsonInputValue.value = JSON.stringify(jsonConfig.value, null, 2);
+    jsonError.value = "";
+  }
+  jsonEditorMode.value = !jsonEditorMode.value;
+}
+
+// 应用JSON编辑器的内容
+function applyJsonEditor() {
+  try {
+    const config = JSON.parse(jsonInputValue.value);
+    jsonConfig.value = config;
+    applyJsonToForm(config);
+    jsonError.value = "";
+    jsonEditorMode.value = false;
+  } catch (error: any) {
+    jsonError.value = error.message;
+    window.$message?.error?.("JSON格式错误：" + error.message);
+  }
+}
+
+// 同步表单到JSON预览
+function syncFormToJson() {
+  jsonConfig.value = generateJsonFromForm();
+}
+
 async function handleOperate(sign: any) {
   if (sign === "submit") {
     await validate();
@@ -744,6 +863,8 @@ function renderLabel(option: { value?: string | number, label?: string }) {
 onMounted(async () => {
   await getMapList();
   await getModels(); // 获取模型列表
+  // 初始化JSON配置
+  jsonConfig.value = generateJsonFromForm();
 });
 
 onBeforeUnmount(() => { });
@@ -839,6 +960,98 @@ onBeforeUnmount(() => { });
               </div>
             </n-card>
           </div>
+          <!-- 高级配置区块 -->
+          <div class="w-full h-auto flex items-center">
+            <n-card class="w-full h-auto">
+              <template #header>
+                <div class="flex justify-between items-center">
+                  <span>高级配置 (JSON)</span>
+                  <n-space>
+                    <n-button size="small" @click="showAdvancedConfig = !showAdvancedConfig">
+                      {{ showAdvancedConfig ? '收起' : '展开' }}
+                    </n-button>
+                  </n-space>
+                </div>
+              </template>
+
+              <div v-show="showAdvancedConfig">
+                <n-space vertical :size="16">
+                  <!-- 操作按钮 -->
+                  <n-space>
+                    <n-button type="primary" size="small" @click="syncFormToJson">
+                      <template #icon>
+                        <icon-ic-round-next-plan />
+                      </template>
+                      同步表单到JSON
+                    </n-button>
+                    <n-button type="info" size="small" @click="toggleJsonEditMode">
+                      <template #icon>
+                        <icon-lucide--edit />
+                      </template>
+                      {{ jsonEditorMode ? '预览模式' : '编辑模式' }}
+                    </n-button>
+                    <n-button size="small" @click="exportJsonConfig">
+                      <template #icon>
+                        <icon-ic--baseline-download />
+                      </template>
+                      导出JSON
+                    </n-button>
+                    <n-upload
+                      :show-file-list="false"
+                      accept=".json"
+                      :custom-request="({ file }) => handleImportJson(file.file as File)"
+                    >
+                      <n-button size="small">
+                        <template #icon>
+                          <icon-fa6-solid--file-import />
+                        </template>
+                        导入JSON
+                      </n-button>
+                    </n-upload>
+                  </n-space>
+
+                  <!-- JSON编辑模式 -->
+                  <div v-if="jsonEditorMode">
+                    <n-input
+                      v-model:value="jsonInputValue"
+                      type="textarea"
+                      placeholder="请输入JSON配置"
+                      :rows="20"
+                      :style="{ fontFamily: 'monospace' }"
+                    />
+                    <n-alert v-if="jsonError" type="error" :title="jsonError" style="margin-top: 12px" />
+                    <n-space style="margin-top: 12px">
+                      <n-button type="primary" @click="applyJsonEditor">应用配置</n-button>
+                      <n-button @click="jsonEditorMode = false">取消</n-button>
+                    </n-space>
+                  </div>
+
+                  <!-- JSON预览模式 -->
+                  <div v-else>
+                    <div class="json-preview-container" style="max-height: 500px; overflow-y: auto;">
+                      <vue-json-pretty
+                        :data="jsonConfig"
+                        :deep="3"
+                        :show-double-quotes="true"
+                        :show-length="true"
+                        :show-line="true"
+                      />
+                    </div>
+                  </div>
+
+                  <!-- 使用说明 -->
+                  <n-alert type="info" title="使用说明">
+                    <ul style="margin: 0; padding-left: 20px;">
+                      <li>点击"同步表单到JSON"将当前表单配置转换为JSON格式</li>
+                      <li>点击"编辑模式"可以直接编辑JSON配置，编辑完成后点击"应用配置"</li>
+                      <li>可以导出当前配置为JSON文件，或导入之前保存的JSON配置文件</li>
+                      <li>JSON配置会在提交时自动与表单配置合并</li>
+                    </ul>
+                  </n-alert>
+                </n-space>
+              </div>
+            </n-card>
+          </div>
         </div>
       </n-form>
     </div>
@@ -868,5 +1081,17 @@ onBeforeUnmount(() => { });
 
 :deep(.n-input-wrapper) {
   width: 100% !important;
+}
+
+// JSON预览容器样式
+.json-preview-container {
+  background-color: #f5f7fa;
+  border: 1px solid #e4e7ed;
+  border-radius: 4px;
+  padding: 12px;
+
+  :deep(.vjs-tree) {
+    font-size: 14px;
+  }
 }
 </style>
