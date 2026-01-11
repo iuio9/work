@@ -739,6 +739,80 @@
             style="width: 100%"
           />
         </n-form-item>
+
+        <!-- Qwen2.5-VL多模型配置 -->
+        <template v-if="isQwenTeacher">
+          <n-divider>Qwen2.5-VL多模型配置</n-divider>
+
+          <n-grid :cols="2" :x-gap="24">
+            <n-gi>
+              <n-form-item label="任务类型" path="taskType">
+                <n-select
+                  v-model:value="taskForm.taskType"
+                  :options="taskTypeOptions"
+                  placeholder="选择任务类型"
+                />
+              </n-form-item>
+            </n-gi>
+            <n-gi>
+              <n-form-item label="学生模型大小" path="studentModelSize">
+                <n-select
+                  v-model:value="taskForm.studentModelSize"
+                  :options="studentModelSizeOptions"
+                  placeholder="选择模型大小"
+                />
+              </n-form-item>
+            </n-gi>
+            <n-gi>
+              <n-form-item label="分类类别数" path="numClasses">
+                <n-input-number
+                  v-model:value="taskForm.numClasses"
+                  :min="2"
+                  :max="1000"
+                  placeholder="类别数"
+                  style="width: 100%"
+                />
+              </n-form-item>
+            </n-gi>
+            <n-gi>
+              <n-form-item label="图像尺寸" path="imageSize">
+                <n-input-number
+                  v-model:value="taskForm.imageSize"
+                  :min="32"
+                  :max="1024"
+                  :step="32"
+                  placeholder="输入图像大小"
+                  style="width: 100%"
+                />
+              </n-form-item>
+            </n-gi>
+            <n-gi>
+              <n-form-item label="蒸馏类型" path="distillationType">
+                <n-select
+                  v-model:value="taskForm.distillationType"
+                  :options="distillationTypeOptions"
+                  placeholder="选择蒸馏策略"
+                />
+              </n-form-item>
+            </n-gi>
+            <n-gi>
+              <n-form-item label="特征损失类型" path="featureLossType">
+                <n-select
+                  v-model:value="taskForm.featureLossType"
+                  :options="featureLossTypeOptions"
+                  placeholder="选择损失函数"
+                />
+              </n-form-item>
+            </n-gi>
+          </n-grid>
+
+          <n-form-item label="启用特征对齐">
+            <n-switch v-model:value="taskForm.alignFeature">
+              <template #checked>启用</template>
+              <template #unchecked>禁用</template>
+            </n-switch>
+          </n-form-item>
+        </template>
       </n-form>
 
       <template #footer>
@@ -787,6 +861,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, h } from 'vue';
+import { useRouter } from 'vue-router';
 import { NButton, NTag, NSpace, NIcon, useMessage, useDialog } from 'naive-ui';
 import {
   LayersOutline,
@@ -815,6 +890,7 @@ import * as echarts from 'echarts';
 // ==================== 响应式数据 ====================
 const message = useMessage();
 const dialog = useDialog();
+const router = useRouter();
 
 const activeTab = ref('model-config');
 
@@ -872,6 +948,7 @@ const selectedTask = ref<any>(null);
 // 创建任务对话框
 const showCreateTaskModal = ref(false);
 const creatingTask = ref(false);
+const taskFormRef = ref<any>(null);
 const taskForm = ref({
   taskName: '',
   description: '',
@@ -887,7 +964,16 @@ const taskForm = ref({
   optimizer: 'adamw',
   gpuDevices: [],
   autoSaveCheckpoint: true,
-  checkpointInterval: 5
+  checkpointInterval: 5,
+  // Qwen2.5-VL多模型配置
+  studentModelType: '',
+  studentModelSize: '',
+  taskType: 'classification',
+  numClasses: 10,
+  imageSize: 224,
+  distillationType: 'feature',
+  featureLossType: 'mse',
+  alignFeature: true
 });
 
 const taskFormRules = {
@@ -939,6 +1025,7 @@ const teacherModelOptions = [
   { label: 'LLaMA-2-70B', value: 'llama2-70b', paramSize: '70B' },
   { label: 'Qwen-7B', value: 'qwen-7b', paramSize: '7B' },
   { label: 'Qwen-14B', value: 'qwen-14b', paramSize: '14B' },
+  { label: 'Qwen2.5-VL-8B', value: 'qwen2.5-vl-8b', paramSize: '8B' },
   { label: 'Baichuan2-7B', value: 'baichuan2-7b', paramSize: '7B' },
   { label: 'Baichuan2-13B', value: 'baichuan2-13b', paramSize: '13B' },
   { label: 'ChatGLM3-6B', value: 'chatglm3-6b', paramSize: '6B' },
@@ -953,6 +1040,11 @@ const studentModelOptions = [
   { label: 'BERT-Base-110M', value: 'bert-base-110m', paramSize: '110M' },
   { label: 'GPT-2-Small-117M', value: 'gpt2-small-117m', paramSize: '117M' },
   { label: 'T5-Small-60M', value: 't5-small-60m', paramSize: '60M' },
+  { label: 'ResNet (图像分类)', value: 'resnet', paramSize: 'Variable' },
+  { label: 'Vision Transformer (图像分类)', value: 'vit', paramSize: 'Variable' },
+  { label: 'YOLOv8 (目标检测)', value: 'yolov8', paramSize: 'Variable' },
+  { label: 'UNet (图像分割)', value: 'unet', paramSize: 'Variable' },
+  { label: 'LSTM (序列特征提取)', value: 'lstm', paramSize: 'Variable' },
   { label: 'Custom Model', value: 'custom', paramSize: 'Custom' }
 ];
 
@@ -1033,7 +1125,41 @@ const gpuOptions = [
   { label: 'GPU 3', value: '3' }
 ];
 
+// Qwen2.5-VL学生模型大小选项
+const studentModelSizeOptions = ref([
+  { label: 'ResNet18', value: 'resnet18' },
+  { label: 'ResNet34', value: 'resnet34' },
+  { label: 'ResNet50', value: 'resnet50' }
+]);
+
+// 任务类型选项
+const taskTypeOptions = [
+  { label: '图像分类 (Classification)', value: 'classification' },
+  { label: '目标检测 (Detection)', value: 'detection' },
+  { label: '图像分割 (Segmentation)', value: 'segmentation' }
+];
+
+// 蒸馏类型选项
+const distillationTypeOptions = [
+  { label: '特征蒸馏 (Feature)', value: 'feature' },
+  { label: 'Logit蒸馏', value: 'logit' },
+  { label: '混合蒸馏 (Hybrid)', value: 'hybrid' }
+];
+
+// 特征损失类型选项
+const featureLossTypeOptions = [
+  { label: '均方误差 (MSE)', value: 'mse' },
+  { label: '余弦相似度 (Cosine)', value: 'cosine' }
+];
+
 // ==================== 计算属性 ====================
+
+// 检测是否选择了Qwen教师模型
+const isQwenTeacher = computed(() => {
+  return teacherModel.value.modelId &&
+         (teacherModel.value.modelId.toLowerCase().includes('qwen') ||
+          teacherModel.value.modelId.toLowerCase().includes('qwen2'));
+});
 
 const filteredTasks = computed(() => {
   if (!taskSearchKeyword.value) return tasks.value;
@@ -1399,6 +1525,49 @@ function handleStudentModelChange(value: string) {
   if (model) {
     studentModel.value.paramSize = model.paramSize;
   }
+  // 如果是Qwen模型，更新studentModelType
+  if (isQwenTeacher.value && ['resnet', 'vit', 'yolov8', 'unet', 'lstm'].includes(value)) {
+    taskForm.value.studentModelType = value;
+    handleStudentModelTypeChange(value);
+  }
+}
+
+// Qwen学生模型类型变更，更新模型大小选项
+function handleStudentModelTypeChange(type: string) {
+  const sizeOptionsMap: Record<string, any[]> = {
+    resnet: [
+      { label: 'ResNet18', value: 'resnet18' },
+      { label: 'ResNet34', value: 'resnet34' },
+      { label: 'ResNet50', value: 'resnet50' },
+      { label: 'ResNet101', value: 'resnet101' }
+    ],
+    vit: [
+      { label: 'ViT-Tiny', value: 'vit-tiny' },
+      { label: 'ViT-Small', value: 'vit-small' },
+      { label: 'ViT-Base', value: 'vit-base' }
+    ],
+    yolov8: [
+      { label: 'YOLOv8n (Nano)', value: 'n' },
+      { label: 'YOLOv8s (Small)', value: 's' },
+      { label: 'YOLOv8m (Medium)', value: 'm' },
+      { label: 'YOLOv8l (Large)', value: 'l' }
+    ],
+    unet: [
+      { label: 'UNet-Small', value: 'small' },
+      { label: 'UNet-Medium', value: 'medium' },
+      { label: 'UNet-Large', value: 'large' }
+    ],
+    lstm: [
+      { label: 'LSTM-Small (256)', value: 'small' },
+      { label: 'LSTM-Medium (512)', value: 'medium' },
+      { label: 'LSTM-Large (1024)', value: 'large' }
+    ]
+  };
+
+  studentModelSizeOptions.value = sizeOptionsMap[type] || [];
+  if (studentModelSizeOptions.value.length > 0) {
+    taskForm.value.studentModelSize = studentModelSizeOptions.value[0].value;
+  }
 }
 
 // 重置配置
@@ -1529,15 +1698,66 @@ function refreshTasks() {
 }
 
 // 创建任务
-function handleCreateTask() {
-  // TODO: 表单验证和API调用
-  creatingTask.value = true;
-  setTimeout(() => {
-    message.success('训练任务创建成功');
-    showCreateTaskModal.value = false;
+async function handleCreateTask() {
+  try {
+    // 表单验证
+    await taskFormRef.value?.validate();
+
+    creatingTask.value = true;
+
+    // 准备提交数据
+    const submitData: any = {
+      ...taskForm.value,
+      // 从Tab1的模型配置中获取
+      teacherModel: teacherModel.value.modelId,
+      studentModel: studentModel.value.modelId,
+      teacherParamSize: teacherModel.value.paramSize,
+      teacherModelPath: teacherModel.value.modelPath,
+      teacherQuantization: teacherModel.value.quantization,
+      studentParamSize: studentModel.value.paramSize,
+      studentInitMethod: studentModel.value.initMethod,
+      studentPretrainPath: studentModel.value.pretrainPath,
+      // LoRA配置
+      loraRank: loraConfig.value.rank,
+      loraAlpha: loraConfig.value.alpha,
+      loraDropout: loraConfig.value.dropout,
+      loraTargetModules: loraConfig.value.targetModules?.join(','),
+      loraLayers: loraConfig.value.layers,
+      loraBiasTrain: loraConfig.value.biasTrain,
+      // 知识蒸馏配置
+      temperature: distillConfig.value.temperature,
+      alpha: distillConfig.value.softLabelWeight,
+      hardLabelWeight: distillConfig.value.hardLabelWeight,
+      softLabelWeight: distillConfig.value.softLabelWeight,
+      distillLossType: distillConfig.value.lossType,
+      intermediateLayers: distillConfig.value.intermediateLayers,
+      attentionDistill: distillConfig.value.attentionDistill,
+      // GPU设备转为逗号分隔字符串
+      gpuDevices: taskForm.value.gpuDevices?.join(',')
+    };
+
+    // TODO: 调用API - 需要实现 /model-distillation/tasks 接口
+    // const res = await createDistillationTask(submitData);
+    // if (res.code === 200) {
+    //   message.success('训练任务创建成功');
+    //   showCreateTaskModal.value = false;
+    //   refreshTasks();
+    // } else {
+    //   message.error(res.message || '创建任务失败');
+    // }
+
+    // 临时模拟成功
+    setTimeout(() => {
+      message.success('训练任务创建成功');
+      showCreateTaskModal.value = false;
+      creatingTask.value = false;
+      refreshTasks();
+    }, 1000);
+  } catch (error) {
+    console.error('创建任务失败:', error);
+    message.error('创建任务失败');
     creatingTask.value = false;
-    refreshTasks();
-  }, 1000);
+  }
 }
 
 // 启动任务
