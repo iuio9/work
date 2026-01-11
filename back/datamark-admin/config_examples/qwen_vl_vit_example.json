@@ -1,0 +1,59 @@
+{
+  "task_name": "Qwen2.5-VL蒸馏到Vision Transformer",
+  "description": "使用Qwen2.5-VL 8B作为教师模型，训练ViT-Base学生模型",
+
+  "teacher_model": {
+    "type": "qwen2.5-vl",
+    "model_path": "/data/models/qwen2.5-vl-8b",
+    "freeze_weights": true
+  },
+
+  "student_model": {
+    "type": "vit",
+    "size": "vit-base",
+    "pretrained": true,
+    "num_classes": 100
+  },
+
+  "training": {
+    "task_type": "classification",
+    "epochs": 50,
+    "batch_size": 64,
+    "image_size": 224,
+    "learning_rate": 0.00005,
+    "optimizer": "adamw",
+    "lr_scheduler": "cosine",
+    "weight_decay": 0.05,
+    "grad_accum_steps": 2,
+    "max_grad_norm": 1.0,
+    "use_amp": true
+  },
+
+  "distillation": {
+    "type": "layer",
+    "temperature": 4.0,
+    "alpha": 0.4,
+    "beta": 0.4,
+    "gamma": 0.2,
+    "feature_loss_type": "mse",
+    "align_feature": true,
+    "feature_dim": 768
+  },
+
+  "dataset": {
+    "train_path": "/data/datasets/imagenet_subset/train",
+    "val_path": "/data/datasets/imagenet_subset/val",
+    "num_classes": 100
+  },
+
+  "gpu": {
+    "devices": "0,1",
+    "use_amp": true
+  },
+
+  "output": {
+    "output_dir": "/data/outputs/qwen_vit_base",
+    "checkpoint_interval": 5,
+    "log_interval": 20
+  }
+}

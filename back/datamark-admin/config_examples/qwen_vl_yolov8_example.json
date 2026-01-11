@@ -1,0 +1,59 @@
+{
+  "task_name": "Qwen2.5-VL蒸馏到YOLOv8检测模型",
+  "description": "使用Qwen2.5-VL 8B作为教师模型，训练YOLOv8-s进行目标检测",
+
+  "teacher_model": {
+    "type": "qwen2.5-vl",
+    "model_path": "/data/models/qwen2.5-vl-8b",
+    "freeze_weights": true
+  },
+
+  "student_model": {
+    "type": "yolov8",
+    "size": "s",
+    "pretrained": true,
+    "num_classes": 80
+  },
+
+  "training": {
+    "task_type": "detection",
+    "epochs": 300,
+    "batch_size": 16,
+    "image_size": 640,
+    "learning_rate": 0.001,
+    "optimizer": "sgd",
+    "lr_scheduler": "cosine",
+    "weight_decay": 0.0005,
+    "grad_accum_steps": 1,
+    "max_grad_norm": 10.0,
+    "use_amp": false
+  },
+
+  "distillation": {
+    "type": "feature",
+    "temperature": 1.0,
+    "alpha": 0.0,
+    "beta": 0.0,
+    "gamma": 1.0,
+    "feature_loss_type": "mse",
+    "align_feature": true,
+    "feature_dim": 512
+  },
+
+  "dataset": {
+    "train_path": "/data/datasets/coco/train",
+    "val_path": "/data/datasets/coco/val",
+    "num_classes": 80
+  },
+
+  "gpu": {
+    "devices": "0",
+    "use_amp": false
+  },
+
+  "output": {
+    "output_dir": "/data/outputs/qwen_yolov8s",
+    "checkpoint_interval": 20,
+    "log_interval": 100
+  }
+}
