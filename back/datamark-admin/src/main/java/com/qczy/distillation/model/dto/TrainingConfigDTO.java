@@ -171,4 +171,46 @@ public class TrainingConfigDTO implements Serializable {
          */
         private Boolean attentionDistill;
     }
+
+    // ========== Qwen2.5-VL多模型配置 ==========
+
+    /**
+     * 学生模型类型：resnet, vit, yolov8, unet, lstm
+     */
+    private String studentModelType;
+
+    /**
+     * 学生模型大小：resnet50, vit-base, s, medium等
+     */
+    private String studentModelSize;
+
+    /**
+     * 任务类型：classification, detection, segmentation
+     */
+    private String taskType;
+
+    /**
+     * 分类类别数
+     */
+    private Integer numClasses;
+
+    /**
+     * 图像尺寸
+     */
+    private Integer imageSize;
+
+    /**
+     * 蒸馏类型：feature, logit, hybrid
+     */
+    private String distillationType;
+
+    /**
+     * 特征损失类型：mse, cosine
+     */
+    private String featureLossType;
+
+    /**
+     * 是否启用特征对齐
+     */
+    private Boolean alignFeature;
 }

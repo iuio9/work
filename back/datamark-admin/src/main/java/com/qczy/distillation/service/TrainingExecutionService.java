@@ -56,6 +56,12 @@ public class TrainingExecutionService {
     private String scriptPath;
 
     /**
+     * Qwen2.5-VL训练脚本路径
+     */
+    @Value("${distillation.qwen-script.path:/home/user/work/back/datamark-admin/train_qwen_vl_distillation.py}")
+    private String qwenScriptPath;
+
+    /**
      * 后端API基础URL
      */
     @Value("${distillation.api.base-url:http://localhost:8080}")
@@ -210,8 +216,8 @@ public class TrainingExecutionService {
         // Python解释器
         command.add(pythonPath);
 
-        // 训练脚本
-        command.add(scriptPath);
+        // 训练脚本（根据教师模型类型动态选择）
+        command.add(getTrainingScript(task.getTeacherModel()));
 
         // ========== 基础配置 ==========
         command.add("--task_id");
@@ -360,6 +366,47 @@ public class TrainingExecutionService {
                     command.add(distillConfig.getLossType());
                 }
             }
+
+            // ========== Qwen2.5-VL多模型配置 ==========
+            if (config.getStudentModelType() != null) {
+                command.add("--student_model_type");
+                command.add(config.getStudentModelType());
+            }
+
+            if (config.getStudentModelSize() != null) {
+                command.add("--student_model_size");
+                command.add(config.getStudentModelSize());
+            }
+
+            if (config.getTaskType() != null) {
+                command.add("--task_type");
+                command.add(config.getTaskType());
+            }
+
+            if (config.getNumClasses() != null) {
+                command.add("--num_classes");
+                command.add(String.valueOf(config.getNumClasses()));
+            }
+
+            if (config.getImageSize() != null) {
+                command.add("--image_size");
+                command.add(String.valueOf(config.getImageSize()));
+            }
+
+            if (config.getDistillationType() != null) {
+                command.add("--distillation_type");
+                command.add(config.getDistillationType());
+            }
+
+            if (config.getFeatureLossType() != null) {
+                command.add("--feature_loss_type");
+                command.add(config.getFeatureLossType());
+            }
+
+            if (config.getAlignFeature() != null) {
+                command.add("--align_feature");
+                command.add(String.valueOf(config.getAlignFeature()));
+            }
         }
 
         // ========== 输出配置 ==========
@@ -368,6 +415,22 @@ public class TrainingExecutionService {
         command.add(outputDir);
 
         return command;
+    }
+
+    /**
+     * 根据教师模型类型选择训练脚本
+     *
+     * @param teacherModel 教师模型名称
+     * @return 训练脚本路径
+     */
+    private String getTrainingScript(String teacherModel) {
+        if (teacherModel != null &&
+            (teacherModel.toLowerCase().contains("qwen") ||
+             teacherModel.toLowerCase().contains("qwen2"))) {
+            logger.info("检测到Qwen模型，使用Qwen专用训练脚本: {}", qwenScriptPath);
+            return qwenScriptPath;
+        }
+        return scriptPath;
     }
 
     /**

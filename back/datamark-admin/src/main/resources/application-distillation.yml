@@ -9,6 +9,10 @@ distillation:
   script:
     path: /home/user/work/back/datamark-admin/train_distillation.py
 
+  # Qwen2.5-VL训练脚本路径
+  qwen-script:
+    path: /home/user/work/back/datamark-admin/train_qwen_vl_distillation.py
+
   # 后端API基础URL
   # 训练脚本通过此URL回调更新进度
   api:
