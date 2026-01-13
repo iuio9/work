@@ -121,7 +121,13 @@ watch(() => props.show, (newVal) => {
 
 const handleSubmit = async () => {
   try {
+    console.log('开始提交推理任务...');
+    console.log('props.task:', props.task);
+    console.log('formData:', formData.value);
+
+    // 表单验证
     await formRef.value?.validate();
+    console.log('表单验证通过');
 
     loading.value = true;
 
@@ -130,7 +136,11 @@ const handleSubmit = async () => {
       ...formData.value
     };
 
+    console.log('提交数据:', submitData);
+
     const res = await distillationAPI.submitInferenceTask(submitData);
+
+    console.log('后端响应:', res);
 
     if (res.code === 200 || res.code === 0) {
       message.success('推理任务已提交！');
@@ -140,11 +150,16 @@ const handleSubmit = async () => {
       message.error(res.message || '提交失败');
     }
   } catch (error: any) {
-    if (error?.message) {
-      // 表单验证失败
+    console.error('提交推理任务错误:', error);
+
+    // 检查是否是表单验证错误
+    if (error && error.constructor && error.constructor.name === 'Array') {
+      console.log('表单验证失败');
+      message.warning('请填写必填项');
       return;
     }
-    message.error('提交失败：' + (error?.message || '未知错误'));
+
+    message.error('提交失败：' + (error?.message || JSON.stringify(error) || '未知错误'));
   } finally {
     loading.value = false;
   }
