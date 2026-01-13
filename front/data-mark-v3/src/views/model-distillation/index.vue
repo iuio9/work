@@ -2321,12 +2321,17 @@ async function refreshInferenceTasks() {
   inferenceTasksLoading.value = true;
   try {
     const res = await getAllInferenceTasks();
-    if (res.code === 200 || res.code === 0) {
+    console.log('获取推理任务列表响应:', res);
+
+    // 兼容不同的响应格式
+    if (res.code === 200 || res.code === 0 || (res.data !== undefined && !res.error)) {
       inferenceTasksData.value = res.data || [];
+      console.log('推理任务列表:', inferenceTasksData.value);
     } else {
-      message.error(res.message || '获取推理任务列表失败');
+      message.error(res.message || res.error || '获取推理任务列表失败');
     }
   } catch (error: any) {
+    console.error('获取推理任务列表错误:', error);
     message.error('获取推理任务列表失败：' + (error?.message || '未知错误'));
   } finally {
     inferenceTasksLoading.value = false;
