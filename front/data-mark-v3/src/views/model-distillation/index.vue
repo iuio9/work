@@ -1932,6 +1932,36 @@ async function handleStopTask(task: any) {
   });
 }
 
+// 暂停任务
+async function handlePauseTask(task: any) {
+  dialog.warning({
+    title: '确认暂停',
+    content: `确定要暂停任务 "${task.taskName}" 吗？可以稍后恢复运行。`,
+    positiveText: '暂停',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      try {
+        console.log('暂停训练任务:', task.taskId);
+        // 暂停也使用 stop 接口，因为后端可能没有单独的 pause 接口
+        const res = await stopDistillationTask(task.taskId);
+
+        // 兼容不同的响应格式
+        if (res.code === 200 || res.code === 0 || (res.data !== undefined && !res.error)) {
+          message.success(`任务 "${task.taskName}" 已暂停`);
+          // 使用 nextTick 确保 DOM 更新完成后再刷新列表
+          await nextTick();
+          await refreshTasks();
+        } else {
+          message.error(res.message || getErrorMessage(res.error) || '暂停任务失败');
+        }
+      } catch (error: any) {
+        console.error('暂停任务失败:', error);
+        message.error('暂停任务失败：' + (error?.message || '未知错误'));
+      }
+    }
+  });
+}
+
 // 查看任务
 function handleViewTask(task: any) {
   selectedTask.value = task;
