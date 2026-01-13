@@ -1,10 +1,11 @@
 <template>
   <n-modal
     v-model:show="showModal"
-    preset="dialog"
+    preset="card"
     title="使用模型进行自动标注"
     :style="{ width: '600px' }"
     :mask-closable="false"
+    :segmented="{ content: 'soft', footer: 'soft' }"
   >
     <n-form ref="formRef" :model="formData" :rules="rules" label-placement="left" label-width="120">
       <n-form-item label="训练任务" path="taskId">
@@ -50,8 +51,8 @@
       </n-form-item>
     </n-form>
 
-    <template #action>
-      <n-space>
+    <template #footer>
+      <n-space justify="end">
         <n-button @click="handleCancel" :disabled="loading">取消</n-button>
         <n-button type="primary" @click="handleSubmit" :loading="loading">
           {{ loading ? '提交中...' : '开始推理' }}
