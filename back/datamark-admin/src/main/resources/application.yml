@@ -3,6 +3,10 @@ spring:
 #    active: zidonghuasuo2.0
 #    active: aliyun
     active: test
+  # 修复Swagger与Spring Boot 2.6+兼容性问题
+  mvc:
+    pathmatch:
+      matching-strategy: ant_path_matcher
 # 主配置文件，设置默认值
 swagger:
   enabled: false  # 默认禁用，避免未指定环境时出错
