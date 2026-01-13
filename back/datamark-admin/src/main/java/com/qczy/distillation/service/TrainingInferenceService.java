@@ -79,8 +79,11 @@ public class TrainingInferenceService {
             }
 
             // 获取模型路径
-            String modelPath = task.getModelSavePath();
-            if (modelPath == null || !new File(modelPath).exists()) {
+            String modelPath = task.getModelPath();
+            if (modelPath == null || modelPath.isEmpty()) {
+                throw new RuntimeException("模型路径为空，请确认训练任务已保存模型");
+            }
+            if (!new File(modelPath).exists()) {
                 throw new RuntimeException("模型文件不存在: " + modelPath);
             }
 
