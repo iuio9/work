@@ -58,7 +58,23 @@ PREPARE stmt FROM @query;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
--- 5. 修改 md_model_evaluation 表的 eval_dataset_id 字段类型
+-- 5. 添加任务描述字段（如果不存在）
+SET @col_exists = 0;
+SELECT COUNT(*) INTO @col_exists
+FROM information_schema.COLUMNS
+WHERE TABLE_SCHEMA = DATABASE()
+  AND TABLE_NAME = 'md_training_task'
+  AND COLUMN_NAME = 'description';
+
+SET @query = IF(@col_exists = 0,
+  'ALTER TABLE `md_training_task` ADD COLUMN `description` TEXT DEFAULT NULL COMMENT ''任务描述'' AFTER `task_name`',
+  'SELECT ''Column description already exists'' AS Result');
+
+PREPARE stmt FROM @query;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- 6. 修改 md_model_evaluation 表的 eval_dataset_id 字段类型
 ALTER TABLE `md_model_evaluation`
   MODIFY COLUMN `eval_dataset_id` VARCHAR(100) DEFAULT NULL COMMENT '评估数据集ID（支持字符串类型）';
 

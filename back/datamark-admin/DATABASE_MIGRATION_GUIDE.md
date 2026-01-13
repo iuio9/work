@@ -11,6 +11,7 @@
 - ✅ 添加 `val_dataset_id` 字段：VARCHAR(100)
 - ✅ 添加 `val_dataset_name` 字段：VARCHAR(255)
 - ✅ 添加 `training_config` 字段：TEXT（用于存储高级训练配置JSON）
+- ✅ 添加 `description` 字段：TEXT（任务描述）
 
 ### 2. md_model_evaluation 表修改
 - ✅ 修改 `eval_dataset_id` 字段：BIGINT → VARCHAR(100)
