@@ -584,7 +584,7 @@
           </div>
         </n-tab-pane>
 
-        <!-- 6. 推理任务列表（自动标注） -->
+        <!-- 6. 推理任务列表（自动标注） - 暂时注释以排查问题
         <n-tab-pane name="inference-tasks" tab="推理任务（自动标注）">
           <div class="p-4">
             <n-space vertical :size="16">
@@ -614,6 +614,7 @@
             </n-space>
           </div>
         </n-tab-pane>
+        -->
       </n-tabs>
     </n-card>
 
@@ -888,12 +889,13 @@
       </template>
     </n-modal>
 
-    <!-- 推理对话框 -->
+    <!-- 推理对话框 - 暂时注释以排查问题
     <InferenceDialog
       v-model:show="showInferenceDialog"
       :task="selectedTaskForInference"
       @success="handleInferenceSuccess"
     />
+    -->
   </div>
 </template>
 
@@ -924,8 +926,8 @@ import {
   CloudUploadOutline
 } from '@vicons/ionicons5';
 import * as echarts from 'echarts';
-import { getAllInferenceTasks, getInferenceStatus, deleteInferenceTask } from '@/service/api/model-distillation';
-import InferenceDialog from './components/InferenceDialog.vue';
+// import { getAllInferenceTasks, getInferenceStatus, deleteInferenceTask } from '@/service/api/model-distillation';
+// import InferenceDialog from './components/InferenceDialog.vue';
 
 // ==================== 响应式数据 ====================
 const message = useMessage();
@@ -1537,7 +1539,8 @@ const loraPresetColumns = [
   }
 ];
 
-// 推理任务列表数据
+// 推理任务列表数据 - 暂时注释
+/*
 const inferenceTasksData = ref([]);
 const inferenceTasksLoading = ref(false);
 
@@ -1652,6 +1655,7 @@ const inferenceColumns = [
     }
   }
 ];
+*/
 
 // ==================== 方法 ====================
 
@@ -2298,15 +2302,24 @@ function handleViewTrainedModelDetail(row: any) {
   });
 }
 
-// 使用模型进行标注
-const showInferenceDialog = ref(false);
-const selectedTaskForInference = ref<any>(null);
+// 使用模型进行标注 - 暂时注释推理功能
+// const showInferenceDialog = ref(false);
+// const selectedTaskForInference = ref<any>(null);
 
 function handleUseModelForAnnotation(row: any) {
-  selectedTaskForInference.value = row;
-  showInferenceDialog.value = true;
+  // 临时跳转到自动标注页面（原来的行为）
+  const router = useRouter();
+  router.push({
+    path: '/data-ano/autoAno',
+    query: {
+      distillationModelId: row.taskId,
+      distillationModelName: row.taskName
+    }
+  });
+  message.success(`已选择模型 ${row.taskName}，正在跳转到自动标注页面...`);
 }
 
+/*
 function handleInferenceSuccess(inferenceId: string) {
   message.success(`推理任务已提交！推理ID: ${inferenceId}`);
   // 切换到推理任务列表Tab
@@ -2365,6 +2378,7 @@ async function handleDeleteInference(row: any) {
     }
   });
 }
+*/
 
 // ==================== 生命周期 ====================
 
