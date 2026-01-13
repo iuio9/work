@@ -46,6 +46,8 @@ spring:
       max-request-size: 100MB
   mvc:
     static-path-pattern: /images/**
+    pathmatch:
+      matching-strategy: ant_path_matcher
 
   jackson:
     default-property-inclusion: always  # 序列化时包含所有字段（包括null值）
@@ -92,3 +94,7 @@ flask:
   algorithmPicHttp1: http://192.168.1.4/data
   prefixToRemove: /home/taizun
   prefixToRemove1: /data
+
+# Swagger配置 - 修复Spring Boot 2.6+兼容性问题
+swagger:
+  enabled: true
