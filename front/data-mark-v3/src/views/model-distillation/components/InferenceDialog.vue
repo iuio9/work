@@ -143,12 +143,13 @@ const handleSubmit = async () => {
 
     console.log('后端响应:', res);
 
-    if (res.code === 200 || res.code === 0) {
-      message.success('推理任务已提交！');
+    // 检查响应是否成功（兼容不同的响应格式）
+    if (res.code === 200 || res.code === 0 || (res.data && !res.error)) {
+      message.success('推理任务已提交！推理ID: ' + (res.data || ''));
       emit('success', res.data);
       showModal.value = false;
     } else {
-      message.error(res.message || '提交失败');
+      message.error(res.message || res.error || '提交失败');
     }
   } catch (error: any) {
     console.error('提交推理任务错误:', error);
