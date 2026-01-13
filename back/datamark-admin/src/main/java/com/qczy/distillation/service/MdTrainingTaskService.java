@@ -75,6 +75,15 @@ public class MdTrainingTaskService {
             task.setDelFlag(0);
         }
 
+        // 设置时间字段（防止 create_time cannot be null 错误）
+        LocalDateTime now = LocalDateTime.now();
+        if (task.getCreateTime() == null) {
+            task.setCreateTime(now);
+        }
+        if (task.getUpdateTime() == null) {
+            task.setUpdateTime(now);
+        }
+
         // 插入数据库
         trainingTaskMapper.insert(task);
         logger.info("Created training task: {}", task.getTaskId());
