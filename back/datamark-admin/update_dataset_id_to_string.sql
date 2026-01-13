@@ -3,7 +3,7 @@
 -- 以支持非数字的数据集ID（如 'dialogue-zh-v2'）
 -- ============================================
 
-USE datamark;
+USE mark;
 
 -- 1. 修改 md_training_task 表的 dataset_id 字段类型
 ALTER TABLE `md_training_task`
