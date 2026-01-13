@@ -71,3 +71,45 @@ export function deleteDistillationTask(taskId: string) {
     method: 'delete'
   });
 }
+
+// ========== 模型推理（自动标注） ==========
+
+/** 提交推理任务 */
+export function submitInferenceTask(data: {
+  taskId: string;
+  inputDir: string;
+  outputDir: string;
+  batchSize?: number;
+  datasetId?: string;
+  autoImport?: boolean;
+}) {
+  return request<any>({
+    url: '/model-distillation/inference/submit',
+    method: 'post',
+    data
+  });
+}
+
+/** 获取推理任务状态 */
+export function getInferenceStatus(inferenceId: string) {
+  return request<any>({
+    url: `/model-distillation/inference/${inferenceId}`,
+    method: 'get'
+  });
+}
+
+/** 获取所有推理任务 */
+export function getAllInferenceTasks() {
+  return request<any>({
+    url: '/model-distillation/inference/list',
+    method: 'get'
+  });
+}
+
+/** 删除推理任务记录 */
+export function deleteInferenceTask(inferenceId: string) {
+  return request<any>({
+    url: `/model-distillation/inference/${inferenceId}`,
+    method: 'delete'
+  });
+}

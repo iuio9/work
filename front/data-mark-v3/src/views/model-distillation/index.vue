@@ -583,6 +583,37 @@
             </n-space>
           </div>
         </n-tab-pane>
+
+        <!-- 6. 推理任务列表（自动标注） -->
+        <n-tab-pane name="inference-tasks" tab="推理任务（自动标注）">
+          <div class="p-4">
+            <n-space vertical :size="16">
+              <div class="flex justify-between items-center">
+                <n-space>
+                  <n-icon :component="InformationCircleOutline" size="20" color="#409EFF" />
+                  <span class="text-base font-medium">推理任务列表 - 使用训练好的模型进行自动标注</span>
+                </n-space>
+                <n-button type="primary" @click="refreshInferenceTasks">
+                  <template #icon>
+                    <n-icon :component="RefreshOutline" />
+                  </template>
+                  刷新列表
+                </n-button>
+              </div>
+
+              <n-card title="推理任务" :bordered="false" hoverable>
+                <n-data-table
+                  :columns="inferenceColumns"
+                  :data="inferenceTasksData"
+                  :loading="inferenceTasksLoading"
+                  :scroll-x="1800"
+                  :pagination="{ pageSize: 10 }"
+                  :bordered="false"
+                />
+              </n-card>
+            </n-space>
+          </div>
+        </n-tab-pane>
       </n-tabs>
     </n-card>
 
@@ -856,6 +887,13 @@
         </n-space>
       </template>
     </n-modal>
+
+    <!-- 推理对话框 -->
+    <InferenceDialog
+      v-model:show="showInferenceDialog"
+      :task="selectedTaskForInference"
+      @success="handleInferenceSuccess"
+    />
   </div>
 </template>
 
@@ -886,6 +924,8 @@ import {
   CloudUploadOutline
 } from '@vicons/ionicons5';
 import * as echarts from 'echarts';
+import { getAllInferenceTasks, getInferenceStatus, deleteInferenceTask } from '@/service/api/model-distillation';
+import InferenceDialog from './components/InferenceDialog.vue';
 
 // ==================== 响应式数据 ====================
 const message = useMessage();
@@ -1489,6 +1529,122 @@ const loraPresetColumns = [
                 onClick: () => handleDeleteLoraPreset(row)
               },
               { default: () => '删除', icon: () => h(NIcon, { component: TrashOutline }) }
+            )
+          ]
+        }
+      );
+    }
+  }
+];
+
+// 推理任务列表数据
+const inferenceTasksData = ref([]);
+const inferenceTasksLoading = ref(false);
+
+// 推理任务列表列定义
+const inferenceColumns = [
+  {
+    title: '推理ID',
+    key: 'inferenceId',
+    width: 180,
+    ellipsis: { tooltip: true }
+  },
+  {
+    title: '训练任务ID',
+    key: 'taskId',
+    width: 180,
+    ellipsis: { tooltip: true }
+  },
+  {
+    title: '模型类型',
+    key: 'modelType',
+    width: 120,
+    render: (row: any) => {
+      const typeMap: Record<string, string> = {
+        resnet: 'ResNet',
+        vit: 'ViT',
+        yolov8: 'YOLOv8',
+        unet: 'UNet',
+        lstm: 'LSTM'
+      };
+      return h('span', typeMap[row.modelType] || row.modelType);
+    }
+  },
+  {
+    title: '状态',
+    key: 'status',
+    width: 120,
+    render(row: any) {
+      const statusMap: Record<string, { type: string; text: string }> = {
+        RUNNING: { type: 'info', text: '运行中' },
+        COMPLETED: { type: 'success', text: '已完成' },
+        FAILED: { type: 'error', text: '失败' }
+      };
+      const status = statusMap[row.status] || { type: 'default', text: row.status };
+      return h(NTag, { type: status.type as any }, { default: () => status.text });
+    }
+  },
+  {
+    title: '处理图像数',
+    key: 'processedImages',
+    width: 120,
+    align: 'center'
+  },
+  {
+    title: '成功/失败',
+    key: 'result',
+    width: 120,
+    align: 'center',
+    render: (row: any) => {
+      return h('span', `${row.successCount || 0}/${row.failureCount || 0}`);
+    }
+  },
+  {
+    title: '输出目录',
+    key: 'outputDir',
+    width: 250,
+    ellipsis: { tooltip: true }
+  },
+  {
+    title: '耗时(秒)',
+    key: 'duration',
+    width: 100,
+    align: 'center'
+  },
+  {
+    title: '开始时间',
+    key: 'startTime',
+    width: 180
+  },
+  {
+    title: '操作',
+    key: 'actions',
+    width: 150,
+    fixed: 'right',
+    render(row: any) {
+      return h(
+        NSpace,
+        {},
+        {
+          default: () => [
+            h(
+              NButton,
+              {
+                size: 'small',
+                type: 'primary',
+                disabled: row.status === 'RUNNING',
+                onClick: () => handleViewInferenceResult(row)
+              },
+              { default: () => '查看结果' }
+            ),
+            h(
+              NButton,
+              {
+                size: 'small',
+                type: 'error',
+                onClick: () => handleDeleteInference(row)
+              },
+              { default: () => '删除' }
             )
           ]
         }
@@ -2143,16 +2299,71 @@ function handleViewTrainedModelDetail(row: any) {
 }
 
 // 使用模型进行标注
+const showInferenceDialog = ref(false);
+const selectedTaskForInference = ref<any>(null);
+
 function handleUseModelForAnnotation(row: any) {
-  const router = useRouter();
-  router.push({
-    path: '/data-ano/autoano',
-    query: {
-      distillationModelId: row.taskId,
-      distillationModelName: row.taskName
+  selectedTaskForInference.value = row;
+  showInferenceDialog.value = true;
+}
+
+function handleInferenceSuccess(inferenceId: string) {
+  message.success(`推理任务已提交！推理ID: ${inferenceId}`);
+  // 切换到推理任务列表Tab
+  activeTab.value = 'inference-tasks';
+  // 刷新推理任务列表
+  refreshInferenceTasks();
+}
+
+// 刷新推理任务列表
+async function refreshInferenceTasks() {
+  inferenceTasksLoading.value = true;
+  try {
+    const res = await getAllInferenceTasks();
+    if (res.code === 200 || res.code === 0) {
+      inferenceTasksData.value = res.data || [];
+    } else {
+      message.error(res.message || '获取推理任务列表失败');
+    }
+  } catch (error: any) {
+    message.error('获取推理任务列表失败：' + (error?.message || '未知错误'));
+  } finally {
+    inferenceTasksLoading.value = false;
+  }
+}
+
+// 查看推理结果
+function handleViewInferenceResult(row: any) {
+  if (row.status === 'COMPLETED') {
+    message.info(`输出目录: ${row.outputDir}\n处理图像: ${row.processedImages} 张\n成功: ${row.successCount} 失败: ${row.failureCount}`);
+  } else if (row.status === 'FAILED') {
+    message.error(`推理失败: ${row.errorMessage || '未知错误'}`);
+  } else {
+    message.info('推理任务进行中...');
+  }
+}
+
+// 删除推理任务
+async function handleDeleteInference(row: any) {
+  dialog.warning({
+    title: '确认删除',
+    content: `确定要删除推理任务 ${row.inferenceId} 吗？`,
+    positiveText: '确定',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      try {
+        const res = await deleteInferenceTask(row.inferenceId);
+        if (res.code === 200 || res.code === 0) {
+          message.success('删除成功');
+          refreshInferenceTasks();
+        } else {
+          message.error(res.message || '删除失败');
+        }
+      } catch (error: any) {
+        message.error('删除失败：' + (error?.message || '未知错误'));
+      }
     }
   });
-  message.success(`已选择模型 ${row.taskName}，正在跳转到自动标注页面...`);
 }
 
 // ==================== 生命周期 ====================
