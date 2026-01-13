@@ -113,3 +113,5 @@ export function deleteInferenceTask(inferenceId: string) {
     method: 'delete'
   });
 }
+
+// Force module reload - timestamp: 2025-01-13T12:00:00Z

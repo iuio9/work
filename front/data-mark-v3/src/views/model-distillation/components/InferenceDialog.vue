@@ -65,7 +65,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { useMessage } from 'naive-ui';
-import * as distillationAPI from '@/service/api/model-distillation';
+import { submitInferenceTask } from '@/service/api/model-distillation';
 
 interface Props {
   show: boolean;
@@ -139,7 +139,7 @@ const handleSubmit = async () => {
 
     console.log('提交数据:', submitData);
 
-    const res = await distillationAPI.submitInferenceTask(submitData);
+    const res = await submitInferenceTask(submitData);
 
     console.log('后端响应:', res);
 
