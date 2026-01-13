@@ -924,7 +924,15 @@ import {
   CloudUploadOutline
 } from '@vicons/ionicons5';
 import * as echarts from 'echarts';
-import { getAllInferenceTasks, deleteInferenceTask } from '@/service/api/model-distillation';
+import {
+  createDistillationTask,
+  fetchDistillationTasks,
+  startDistillationTask,
+  stopDistillationTask,
+  deleteDistillationTask,
+  getAllInferenceTasks,
+  deleteInferenceTask
+} from '@/service/api/model-distillation';
 import InferenceDialog from './components/InferenceDialog.vue';
 
 // ==================== 响应式数据 ====================
@@ -1771,82 +1779,27 @@ function handleSaveConfig() {
 }
 
 // 刷新任务列表
-function refreshTasks() {
+async function refreshTasks() {
   tasksLoading.value = true;
-  // TODO: 调用后端API获取任务列表
-  setTimeout(() => {
-    // 示例数据：包含已完成和运行中的任务（用于演示）
-    tasks.value = [
-      // 已完成的任务（用于"已训练模型"标签页展示）
-      {
-        taskId: 'TASK_001',
-        taskName: '目标检测协同训练-YOLOv5',
-        teacherModel: 'llama2-7b',
-        studentModel: 'yolov5s',
-        loraRank: 16,
-        status: 'COMPLETED',
-        progress: 100,
-        currentEpoch: 50,
-        totalEpochs: 50,
-        accuracy: 92.5,
-        createTime: '2025-11-23 10:30:00'
-      },
-      {
-        taskId: 'TASK_002',
-        taskName: '图像分类协同训练-ResNet',
-        teacherModel: 'qwen-7b',
-        studentModel: 'resnet50',
-        loraRank: 8,
-        status: 'COMPLETED',
-        progress: 100,
-        currentEpoch: 40,
-        totalEpochs: 40,
-        accuracy: 88.3,
-        createTime: '2025-11-20 14:15:00'
-      },
-      {
-        taskId: 'TASK_003',
-        taskName: '语义分割协同训练-UNet',
-        teacherModel: 'llama2-13b',
-        studentModel: 'unet',
-        loraRank: 16,
-        status: 'COMPLETED',
-        progress: 100,
-        currentEpoch: 60,
-        totalEpochs: 60,
-        accuracy: 85.7,
-        createTime: '2025-11-18 09:00:00'
-      },
-      {
-        taskId: 'TASK_005',
-        taskName: '视觉Transformer协同训练',
-        teacherModel: 'llama2-7b',
-        studentModel: 'vit',
-        loraRank: 16,
-        status: 'COMPLETED',
-        progress: 100,
-        currentEpoch: 45,
-        totalEpochs: 45,
-        accuracy: 90.2,
-        createTime: '2025-11-15 16:45:00'
-      },
-      // 正在运行的任务
-      {
-        taskId: 'task-001',
-        taskName: 'LLaMA2-7B 蒸馏训练',
-        teacherModel: 'llama2-7b',
-        studentModel: 'tinyllama',
-        loraRank: 16,
-        status: 'RUNNING',
-        progress: 45,
-        currentEpoch: 4,
-        totalEpochs: 10,
-        accuracy: 82.5,
-        createTime: '2025-11-25 10:30:00'
-      }
-    ];
+  try {
+    const res = await fetchDistillationTasks();
+    console.log('获取训练任务列表响应:', res);
+
+    // 兼容不同的响应格式
+    if (res.code === 200 || res.code === 0 || (res.data !== undefined && !res.error)) {
+      tasks.value = res.data || [];
+      console.log('训练任务列表:', tasks.value);
+    } else {
+      message.error(res.message || res.error || '获取任务列表失败');
+      tasks.value = [];
+    }
+  } catch (error: any) {
+    console.error('获取任务列表错误:', error);
+    message.error('获取任务列表失败：' + (error?.message || '未知错误'));
+    tasks.value = [];
+  } finally {
     tasksLoading.value = false;
-  }, 500);
+  }
 }
 
 // 创建任务
@@ -1888,40 +1841,76 @@ async function handleCreateTask() {
       gpuDevices: taskForm.value.gpuDevices?.join(',')
     };
 
-    // TODO: 调用API - 需要实现 /model-distillation/tasks 接口
-    // const res = await createDistillationTask(submitData);
-    // if (res.code === 200) {
-    //   message.success('训练任务创建成功');
-    //   showCreateTaskModal.value = false;
-    //   refreshTasks();
-    // } else {
-    //   message.error(res.message || '创建任务失败');
-    // }
+    console.log('准备提交训练任务数据:', submitData);
 
-    // 临时模拟成功
-    setTimeout(() => {
-      message.success('训练任务创建成功');
+    // 调用后端API创建训练任务
+    const res = await createDistillationTask(submitData);
+
+    console.log('创建训练任务响应:', res);
+
+    // 兼容不同的响应格式
+    if (res.code === 200 || res.code === 0 || (res.data && !res.error)) {
+      message.success('训练任务创建成功！');
       showCreateTaskModal.value = false;
-      creatingTask.value = false;
-      refreshTasks();
-    }, 1000);
-  } catch (error) {
+      // 刷新任务列表
+      await refreshTasks();
+    } else {
+      message.error(res.message || res.error || '创建任务失败');
+    }
+  } catch (error: any) {
     console.error('创建任务失败:', error);
-    message.error('创建任务失败');
+    message.error('创建任务失败：' + (error?.message || '未知错误'));
+  } finally {
     creatingTask.value = false;
   }
 }
 
 // 启动任务
-function handleStartTask(task: any) {
-  message.info(`启动任务: ${task.taskName}`);
-  // TODO: 调用后端API
+async function handleStartTask(task: any) {
+  try {
+    console.log('启动训练任务:', task.taskId);
+    const res = await startDistillationTask(task.taskId);
+
+    // 兼容不同的响应格式
+    if (res.code === 200 || res.code === 0 || (res.data !== undefined && !res.error)) {
+      message.success(`任务 "${task.taskName}" 已启动`);
+      // 刷新任务列表
+      await refreshTasks();
+    } else {
+      message.error(res.message || res.error || '启动任务失败');
+    }
+  } catch (error: any) {
+    console.error('启动任务失败:', error);
+    message.error('启动任务失败：' + (error?.message || '未知错误'));
+  }
 }
 
-// 暂停任务
-function handlePauseTask(task: any) {
-  message.info(`暂停任务: ${task.taskName}`);
-  // TODO: 调用后端API
+// 停止任务
+async function handleStopTask(task: any) {
+  dialog.warning({
+    title: '确认停止',
+    content: `确定要停止任务 "${task.taskName}" 吗？`,
+    positiveText: '停止',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      try {
+        console.log('停止训练任务:', task.taskId);
+        const res = await stopDistillationTask(task.taskId);
+
+        // 兼容不同的响应格式
+        if (res.code === 200 || res.code === 0 || (res.data !== undefined && !res.error)) {
+          message.success(`任务 "${task.taskName}" 已停止`);
+          // 刷新任务列表
+          await refreshTasks();
+        } else {
+          message.error(res.message || res.error || '停止任务失败');
+        }
+      } catch (error: any) {
+        console.error('停止任务失败:', error);
+        message.error('停止任务失败：' + (error?.message || '未知错误'));
+      }
+    }
+  });
 }
 
 // 查看任务
@@ -1932,15 +1921,29 @@ function handleViewTask(task: any) {
 }
 
 // 删除任务
-function handleDeleteTask(task: any) {
+async function handleDeleteTask(task: any) {
   dialog.warning({
     title: '确认删除',
-    content: `确定要删除任务 "${task.taskName}" 吗？`,
+    content: `确定要删除任务 "${task.taskName}" 吗？此操作不可恢复！`,
     positiveText: '删除',
     negativeText: '取消',
-    onPositiveClick: () => {
-      message.success('任务已删除');
-      refreshTasks();
+    onPositiveClick: async () => {
+      try {
+        console.log('删除训练任务:', task.taskId);
+        const res = await deleteDistillationTask(task.taskId);
+
+        // 兼容不同的响应格式
+        if (res.code === 200 || res.code === 0 || (res.data !== undefined && !res.error)) {
+          message.success(`任务 "${task.taskName}" 已删除`);
+          // 刷新任务列表
+          await refreshTasks();
+        } else {
+          message.error(res.message || res.error || '删除任务失败');
+        }
+      } catch (error: any) {
+        console.error('删除任务失败:', error);
+        message.error('删除任务失败：' + (error?.message || '未知错误'));
+      }
     }
   });
 }
