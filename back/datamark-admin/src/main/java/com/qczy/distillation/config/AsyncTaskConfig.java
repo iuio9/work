@@ -36,13 +36,16 @@ public class AsyncTaskConfig {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
 
         // 核心线程数：同时运行的最大训练任务数
-        executor.setCorePoolSize(2);
+        int corePoolSize = 2;
+        executor.setCorePoolSize(corePoolSize);
 
         // 最大线程数
-        executor.setMaxPoolSize(5);
+        int maxPoolSize = 5;
+        executor.setMaxPoolSize(maxPoolSize);
 
         // 队列容量：等待执行的任务队列大小
-        executor.setQueueCapacity(10);
+        int queueCapacity = 10;
+        executor.setQueueCapacity(queueCapacity);
 
         // 线程名称前缀
         executor.setThreadNamePrefix("TrainingTask-");
@@ -62,7 +65,7 @@ public class AsyncTaskConfig {
         executor.initialize();
 
         logger.info("训练任务线程池初始化完成: corePoolSize={}, maxPoolSize={}, queueCapacity={}",
-                executor.getCorePoolSize(), executor.getMaxPoolSize(), executor.getQueueCapacity());
+                corePoolSize, maxPoolSize, queueCapacity);
 
         return executor;
     }
