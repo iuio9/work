@@ -1891,9 +1891,10 @@ async function handleStartTask(task: any) {
     // 兼容不同的响应格式
     if (res.code === 200 || res.code === 0 || (res.data !== undefined && !res.error)) {
       message.success(`任务 "${task.taskName}" 已启动`);
-      // 使用 nextTick 确保 DOM 更新完成后再刷新列表，避免 parentNode 错误
-      await nextTick();
-      await refreshTasks();
+      // 使用 setTimeout 延迟刷新，避免与按钮点击事件的 DOM 操作冲突
+      setTimeout(() => {
+        refreshTasks();
+      }, 100);
     } else {
       message.error(res.message || getErrorMessage(res.error) || '启动任务失败');
     }
@@ -1910,24 +1911,32 @@ async function handleStopTask(task: any) {
     content: `确定要停止任务 "${task.taskName}" 吗？`,
     positiveText: '停止',
     negativeText: '取消',
-    onPositiveClick: async () => {
-      try {
-        console.log('停止训练任务:', task.taskId);
-        const res = await stopDistillationTask(task.taskId);
+    onPositiveClick: () => {
+      // 返回 Promise，让 Dialog 等待异步操作完成后再关闭
+      return new Promise<void>(async (resolve, reject) => {
+        try {
+          console.log('停止训练任务:', task.taskId);
+          const res = await stopDistillationTask(task.taskId);
 
-        // 兼容不同的响应格式
-        if (res.code === 200 || res.code === 0 || (res.data !== undefined && !res.error)) {
-          message.success(`任务 "${task.taskName}" 已停止`);
-          // 使用 nextTick 确保 DOM 更新完成后再刷新列表
-          await nextTick();
-          await refreshTasks();
-        } else {
-          message.error(res.message || getErrorMessage(res.error) || '停止任务失败');
+          // 兼容不同的响应格式
+          if (res.code === 200 || res.code === 0 || (res.data !== undefined && !res.error)) {
+            message.success(`任务 "${task.taskName}" 已停止`);
+            // 等待 Dialog 完全关闭后再刷新列表
+            resolve();
+            // 使用 setTimeout 确保 Dialog 完全关闭后再刷新
+            setTimeout(() => {
+              refreshTasks();
+            }, 100);
+          } else {
+            message.error(res.message || getErrorMessage(res.error) || '停止任务失败');
+            resolve();
+          }
+        } catch (error: any) {
+          console.error('停止任务失败:', error);
+          message.error('停止任务失败：' + (error?.message || '未知错误'));
+          reject(error);
         }
-      } catch (error: any) {
-        console.error('停止任务失败:', error);
-        message.error('停止任务失败：' + (error?.message || '未知错误'));
-      }
+      });
     }
   });
 }
@@ -1939,25 +1948,32 @@ async function handlePauseTask(task: any) {
     content: `确定要暂停任务 "${task.taskName}" 吗？可以稍后恢复运行。`,
     positiveText: '暂停',
     negativeText: '取消',
-    onPositiveClick: async () => {
-      try {
-        console.log('暂停训练任务:', task.taskId);
-        // 暂停也使用 stop 接口，因为后端可能没有单独的 pause 接口
-        const res = await stopDistillationTask(task.taskId);
+    onPositiveClick: () => {
+      // 返回 Promise，让 Dialog 等待异步操作完成后再关闭
+      return new Promise<void>(async (resolve, reject) => {
+        try {
+          console.log('暂停训练任务:', task.taskId);
+          // 暂停也使用 stop 接口，因为后端可能没有单独的 pause 接口
+          const res = await stopDistillationTask(task.taskId);
 
-        // 兼容不同的响应格式
-        if (res.code === 200 || res.code === 0 || (res.data !== undefined && !res.error)) {
-          message.success(`任务 "${task.taskName}" 已暂停`);
-          // 使用 nextTick 确保 DOM 更新完成后再刷新列表
-          await nextTick();
-          await refreshTasks();
-        } else {
-          message.error(res.message || getErrorMessage(res.error) || '暂停任务失败');
+          // 兼容不同的响应格式
+          if (res.code === 200 || res.code === 0 || (res.data !== undefined && !res.error)) {
+            message.success(`任务 "${task.taskName}" 已暂停`);
+            resolve();
+            // 使用 setTimeout 确保 Dialog 完全关闭后再刷新
+            setTimeout(() => {
+              refreshTasks();
+            }, 100);
+          } else {
+            message.error(res.message || getErrorMessage(res.error) || '暂停任务失败');
+            resolve();
+          }
+        } catch (error: any) {
+          console.error('暂停任务失败:', error);
+          message.error('暂停任务失败：' + (error?.message || '未知错误'));
+          reject(error);
         }
-      } catch (error: any) {
-        console.error('暂停任务失败:', error);
-        message.error('暂停任务失败：' + (error?.message || '未知错误'));
-      }
+      });
     }
   });
 }
@@ -1976,24 +1992,31 @@ async function handleDeleteTask(task: any) {
     content: `确定要删除任务 "${task.taskName}" 吗？此操作不可恢复！`,
     positiveText: '删除',
     negativeText: '取消',
-    onPositiveClick: async () => {
-      try {
-        console.log('删除训练任务:', task.taskId);
-        const res = await deleteDistillationTask(task.taskId);
+    onPositiveClick: () => {
+      // 返回 Promise，让 Dialog 等待异步操作完成后再关闭
+      return new Promise<void>(async (resolve, reject) => {
+        try {
+          console.log('删除训练任务:', task.taskId);
+          const res = await deleteDistillationTask(task.taskId);
 
-        // 兼容不同的响应格式
-        if (res.code === 200 || res.code === 0 || (res.data !== undefined && !res.error)) {
-          message.success(`任务 "${task.taskName}" 已删除`);
-          // 使用 nextTick 确保 DOM 更新完成后再刷新列表
-          await nextTick();
-          await refreshTasks();
-        } else {
-          message.error(res.message || getErrorMessage(res.error) || '删除任务失败');
+          // 兼容不同的响应格式
+          if (res.code === 200 || res.code === 0 || (res.data !== undefined && !res.error)) {
+            message.success(`任务 "${task.taskName}" 已删除`);
+            resolve();
+            // 使用 setTimeout 确保 Dialog 完全关闭后再刷新
+            setTimeout(() => {
+              refreshTasks();
+            }, 100);
+          } else {
+            message.error(res.message || getErrorMessage(res.error) || '删除任务失败');
+            resolve();
+          }
+        } catch (error: any) {
+          console.error('删除任务失败:', error);
+          message.error('删除任务失败：' + (error?.message || '未知错误'));
+          reject(error);
         }
-      } catch (error: any) {
-        console.error('删除任务失败:', error);
-        message.error('删除任务失败：' + (error?.message || '未知错误'));
-      }
+      });
     }
   });
 }
