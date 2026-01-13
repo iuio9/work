@@ -2308,9 +2308,8 @@ function handleViewTrainedModelDetail(row: any) {
 
 function handleUseModelForAnnotation(row: any) {
   // 临时跳转到自动标注页面（原来的行为）
-  const router = useRouter();
   router.push({
-    path: '/data-ano/autoAno',
+    path: '/data-ano/autoano',
     query: {
       distillationModelId: row.taskId,
       distillationModelName: row.taskName
