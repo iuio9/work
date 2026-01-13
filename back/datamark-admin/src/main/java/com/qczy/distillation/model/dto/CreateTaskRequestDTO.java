@@ -43,14 +43,14 @@ public class CreateTaskRequestDTO {
     // ========== 数据集 ==========
 
     /**
-     * 训练数据集ID
+     * 训练数据集ID（支持字符串类型以兼容非数字ID）
      */
-    private Long datasetId;
+    private String datasetId;
 
     /**
-     * 验证数据集ID
+     * 验证数据集ID（支持字符串类型以兼容非数字ID）
      */
-    private Long valDatasetId;
+    private String valDatasetId;
 
     // ========== 基础训练参数 ==========
 

@@ -192,11 +192,11 @@ public class MdTrainingTaskEntity {
     // ========== 数据集信息 ==========
 
     /**
-     * 训练数据集ID
+     * 训练数据集ID（支持字符串类型以兼容非数字ID）
      */
     @TableField("dataset_id")
     @ApiModelProperty(value = "训练数据集ID")
-    private Long datasetId;
+    private String datasetId;
 
     /**
      * 数据集名称
@@ -206,11 +206,11 @@ public class MdTrainingTaskEntity {
     private String datasetName;
 
     /**
-     * 验证数据集ID
+     * 验证数据集ID（支持字符串类型以兼容非数字ID）
      */
     @TableField("val_dataset_id")
     @ApiModelProperty(value = "验证数据集ID")
-    private Long valDatasetId;
+    private String valDatasetId;
 
     /**
      * 验证数据集名称
