@@ -10,6 +10,9 @@ import com.qczy.distillation.model.entity.MdLoraPresetEntity;
 import com.qczy.distillation.model.entity.MdModelEvaluationEntity;
 import com.qczy.distillation.service.MdTrainingTaskService;
 import com.qczy.distillation.service.TrainingExecutionService;
+import com.qczy.distillation.service.TrainingInferenceService;
+import com.qczy.distillation.model.dto.InferenceRequestDTO;
+import com.qczy.distillation.model.dto.InferenceResultDTO;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
@@ -39,6 +42,9 @@ public class ModelDistillationController {
 
     @Autowired
     private TrainingExecutionService trainingExecutionService;
+
+    @Autowired
+    private TrainingInferenceService trainingInferenceService;
 
     // ========== 训练任务管理 ==========
 
@@ -519,6 +525,60 @@ public class ModelDistillationController {
             return Result.ok(tasks);
         } catch (Exception e) {
             return Result.fail(null).message("获取最近任务失败: " + e.getMessage());
+        }
+    }
+
+    // ========== 模型推理（自动标注） ==========
+
+    @PostMapping("/inference/submit")
+    @ApiOperation("提交推理任务（自动标注）")
+    public Result<?> submitInference(@RequestBody InferenceRequestDTO request) {
+        try {
+            // 生成推理ID
+            String inferenceId = "INF-" + System.currentTimeMillis();
+
+            // 异步执行推理
+            trainingInferenceService.submitInferenceTask(inferenceId, request);
+
+            return Result.ok(inferenceId).message("推理任务已提交");
+        } catch (Exception e) {
+            return Result.fail(null).message("提交推理任务失败: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/inference/{inferenceId}")
+    @ApiOperation("获取推理任务状态")
+    public Result<?> getInferenceStatus(@PathVariable String inferenceId) {
+        try {
+            InferenceResultDTO result = trainingInferenceService.getInferenceResult(inferenceId);
+            if (result == null) {
+                return Result.fail(null).message("推理任务不存在");
+            }
+            return Result.ok(result);
+        } catch (Exception e) {
+            return Result.fail(null).message("获取推理状态失败: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/inference/list")
+    @ApiOperation("获取所有推理任务")
+    public Result<?> getAllInferences() {
+        try {
+            List<InferenceResultDTO> results = trainingInferenceService.getAllInferenceResults();
+            return Result.ok(results);
+        } catch (Exception e) {
+            return Result.fail(null).message("获取推理任务列表失败: " + e.getMessage());
+        }
+    }
+
+    @DeleteMapping("/inference/{inferenceId}")
+    @ApiOperation("删除推理任务记录")
+    public Result<?> deleteInference(@PathVariable String inferenceId) {
+        try {
+            trainingInferenceService.clearInferenceResult(inferenceId);
+            return Result.ok(null).message("推理任务记录已删除");
+        } catch (Exception e) {
+            return Result.fail(null).message("删除推理任务失败: " + e.getMessage());
         }
     }
 }

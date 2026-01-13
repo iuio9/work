@@ -13,6 +13,10 @@ distillation:
   qwen-script:
     path: /home/user/work/back/datamark-admin/train_qwen_vl_distillation.py
 
+  # 推理脚本路径（自动标注）
+  inference-script:
+    path: /home/user/work/back/datamark-admin/inference_qwen_vl_distilled_models.py
+
   # 后端API基础URL
   # 训练脚本通过此URL回调更新进度
   api:
