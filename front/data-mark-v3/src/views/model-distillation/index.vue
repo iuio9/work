@@ -924,7 +924,7 @@ import {
   CloudUploadOutline
 } from '@vicons/ionicons5';
 import * as echarts from 'echarts';
-import { getAllInferenceTasks, deleteInferenceTask } from '@/service/api/model-distillation';
+import * as distillationAPI from '@/service/api/model-distillation';
 import InferenceDialog from './components/InferenceDialog.vue';
 
 // ==================== 响应式数据 ====================
@@ -2320,7 +2320,7 @@ const inferenceTasksLoading = ref(false);
 async function refreshInferenceTasks() {
   inferenceTasksLoading.value = true;
   try {
-    const res = await getAllInferenceTasks();
+    const res = await distillationAPI.getAllInferenceTasks();
     if (res.code === 200 || res.code === 0) {
       inferenceTasksData.value = res.data || [];
     } else {
@@ -2353,7 +2353,7 @@ async function handleDeleteInference(row: any) {
     negativeText: '取消',
     onPositiveClick: async () => {
       try {
-        const res = await deleteInferenceTask(row.inferenceId);
+        const res = await distillationAPI.deleteInferenceTask(row.inferenceId);
         if (res.code === 200 || res.code === 0) {
           message.success('删除成功');
           refreshInferenceTasks();
