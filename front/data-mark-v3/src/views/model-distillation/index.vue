@@ -898,7 +898,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, h } from 'vue';
+import { ref, computed, onMounted, onUnmounted, h, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import { NButton, NTag, NSpace, NIcon, useMessage, useDialog } from 'naive-ui';
 import {
@@ -1868,7 +1868,8 @@ async function handleCreateTask() {
     if (res.code === 200 || res.code === 0 || (res.data && !res.error)) {
       message.success('训练任务创建成功！');
       showCreateTaskModal.value = false;
-      // 刷新任务列表
+      // 使用 nextTick 确保模态框关闭后再刷新列表
+      await nextTick();
       await refreshTasks();
     } else {
       message.error(res.message || getErrorMessage(res.error) || '创建任务失败');
@@ -1890,7 +1891,8 @@ async function handleStartTask(task: any) {
     // 兼容不同的响应格式
     if (res.code === 200 || res.code === 0 || (res.data !== undefined && !res.error)) {
       message.success(`任务 "${task.taskName}" 已启动`);
-      // 刷新任务列表
+      // 使用 nextTick 确保 DOM 更新完成后再刷新列表，避免 parentNode 错误
+      await nextTick();
       await refreshTasks();
     } else {
       message.error(res.message || getErrorMessage(res.error) || '启动任务失败');
@@ -1916,7 +1918,8 @@ async function handleStopTask(task: any) {
         // 兼容不同的响应格式
         if (res.code === 200 || res.code === 0 || (res.data !== undefined && !res.error)) {
           message.success(`任务 "${task.taskName}" 已停止`);
-          // 刷新任务列表
+          // 使用 nextTick 确保 DOM 更新完成后再刷新列表
+          await nextTick();
           await refreshTasks();
         } else {
           message.error(res.message || getErrorMessage(res.error) || '停止任务失败');
@@ -1951,7 +1954,8 @@ async function handleDeleteTask(task: any) {
         // 兼容不同的响应格式
         if (res.code === 200 || res.code === 0 || (res.data !== undefined && !res.error)) {
           message.success(`任务 "${task.taskName}" 已删除`);
-          // 刷新任务列表
+          // 使用 nextTick 确保 DOM 更新完成后再刷新列表
+          await nextTick();
           await refreshTasks();
         } else {
           message.error(res.message || getErrorMessage(res.error) || '删除任务失败');
