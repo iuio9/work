@@ -9,6 +9,7 @@ import com.qczy.distillation.model.entity.MdTrainingHistoryEntity;
 import com.qczy.distillation.model.entity.MdLoraPresetEntity;
 import com.qczy.distillation.model.entity.MdModelEvaluationEntity;
 import com.qczy.distillation.service.MdTrainingTaskService;
+import com.qczy.distillation.service.TrainingExecutionService;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
@@ -185,6 +186,16 @@ public class ModelDistillationController {
                 distillConfig.setAttentionDistill(requestDTO.getAttentionDistill());
                 config.setDistillationAdvancedConfig(distillConfig);
             }
+
+            // Qwen2.5-VL多模型配置
+            config.setStudentModelType(requestDTO.getStudentModelType());
+            config.setStudentModelSize(requestDTO.getStudentModelSize());
+            config.setTaskType(requestDTO.getTaskType());
+            config.setNumClasses(requestDTO.getNumClasses());
+            config.setImageSize(requestDTO.getImageSize());
+            config.setDistillationType(requestDTO.getDistillationType());
+            config.setFeatureLossType(requestDTO.getFeatureLossType());
+            config.setAlignFeature(requestDTO.getAlignFeature());
 
             // 3. 将配置对象序列化为JSON字符串
             String trainingConfigJson = JSON.toJSONString(config);
