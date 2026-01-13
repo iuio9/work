@@ -28,7 +28,7 @@ import java.util.stream.Collectors;
  * @Date: 2025-01-25
  * @Description: 处理大小模型协同训练相关的API请求
  */
-@RestController("distillationController")
+@RestController
 @RequestMapping("/model-distillation")
 @Api(tags = "大小模型协同训练")
 @CrossOrigin
