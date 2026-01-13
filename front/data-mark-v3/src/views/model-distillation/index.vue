@@ -1778,6 +1778,22 @@ function handleSaveConfig() {
   message.success('配置保存成功');
 }
 
+/**
+ * 安全地提取错误消息字符串
+ * @param error - 可能是字符串、Error对象或其他类型
+ * @returns 字符串形式的错误消息
+ */
+function getErrorMessage(error: any): string {
+  if (!error) return '';
+  if (typeof error === 'string') return error;
+  if (error.message) return String(error.message);
+  try {
+    return String(error);
+  } catch {
+    return '未知错误';
+  }
+}
+
 // 刷新任务列表
 async function refreshTasks() {
   tasksLoading.value = true;
@@ -1790,7 +1806,7 @@ async function refreshTasks() {
       tasks.value = res.data || [];
       console.log('训练任务列表:', tasks.value);
     } else {
-      message.error(res.message || res.error || '获取任务列表失败');
+      message.error(res.message || getErrorMessage(res.error) || '获取任务列表失败');
       tasks.value = [];
     }
   } catch (error: any) {
@@ -1855,7 +1871,7 @@ async function handleCreateTask() {
       // 刷新任务列表
       await refreshTasks();
     } else {
-      message.error(res.message || res.error || '创建任务失败');
+      message.error(res.message || getErrorMessage(res.error) || '创建任务失败');
     }
   } catch (error: any) {
     console.error('创建任务失败:', error);
@@ -1877,7 +1893,7 @@ async function handleStartTask(task: any) {
       // 刷新任务列表
       await refreshTasks();
     } else {
-      message.error(res.message || res.error || '启动任务失败');
+      message.error(res.message || getErrorMessage(res.error) || '启动任务失败');
     }
   } catch (error: any) {
     console.error('启动任务失败:', error);
@@ -1903,7 +1919,7 @@ async function handleStopTask(task: any) {
           // 刷新任务列表
           await refreshTasks();
         } else {
-          message.error(res.message || res.error || '停止任务失败');
+          message.error(res.message || getErrorMessage(res.error) || '停止任务失败');
         }
       } catch (error: any) {
         console.error('停止任务失败:', error);
@@ -1938,7 +1954,7 @@ async function handleDeleteTask(task: any) {
           // 刷新任务列表
           await refreshTasks();
         } else {
-          message.error(res.message || res.error || '删除任务失败');
+          message.error(res.message || getErrorMessage(res.error) || '删除任务失败');
         }
       } catch (error: any) {
         console.error('删除任务失败:', error);
@@ -2331,7 +2347,7 @@ async function refreshInferenceTasks() {
       inferenceTasksData.value = res.data || [];
       console.log('推理任务列表:', inferenceTasksData.value);
     } else {
-      message.error(res.message || res.error || '获取推理任务列表失败');
+      message.error(res.message || getErrorMessage(res.error) || '获取推理任务列表失败');
     }
   } catch (error: any) {
     console.error('获取推理任务列表错误:', error);

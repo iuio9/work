@@ -102,6 +102,22 @@ const taskInfo = computed(() => {
   return `${props.task.taskName} (${props.task.taskId})`;
 });
 
+/**
+ * 安全地提取错误消息字符串
+ * @param error - 可能是字符串、Error对象或其他类型
+ * @returns 字符串形式的错误消息
+ */
+const getErrorMessage = (error: any): string => {
+  if (!error) return '';
+  if (typeof error === 'string') return error;
+  if (error.message) return String(error.message);
+  try {
+    return String(error);
+  } catch {
+    return '未知错误';
+  }
+};
+
 const rules = {
   inputDir: [
     { required: true, message: '请输入输入图像目录', trigger: 'blur' }
@@ -149,7 +165,7 @@ const handleSubmit = async () => {
       emit('success', res.data);
       showModal.value = false;
     } else {
-      message.error(res.message || res.error || '提交失败');
+      message.error(res.message || getErrorMessage(res.error) || '提交失败');
     }
   } catch (error: any) {
     console.error('提交推理任务错误:', error);
@@ -161,7 +177,7 @@ const handleSubmit = async () => {
       return;
     }
 
-    message.error('提交失败：' + (error?.message || JSON.stringify(error) || '未知错误'));
+    message.error('提交失败：' + getErrorMessage(error));
   } finally {
     loading.value = false;
   }
