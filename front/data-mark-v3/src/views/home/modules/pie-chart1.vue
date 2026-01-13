@@ -80,26 +80,26 @@ const getMonitorServer = async () => {
   // const res = await getComputerInfo();
   const res = await getDaysComputerInfo();
   if (res.data) {
-    if (props.title === "存储服务器") {
+    if (props.title === "存储服务器" && res.data.storagePie && res.data.storagePie[0]) {
       const { avg_cpu_usage, avg_gpu_usage, avg_mem_usage, avg_sys_fileinfo_usage } = res.data.storagePie[0];
       updateOptions((opts) => {
         opts.series[0].data = [
-          { name: "CPU利用率", value: avg_cpu_usage },
-          { name: "GPU利用率", value: avg_gpu_usage },
-          { name: "内存", value: avg_mem_usage },
-          { name: "磁盘", value: avg_sys_fileinfo_usage },
+          { name: "CPU利用率", value: avg_cpu_usage || 0 },
+          { name: "GPU利用率", value: avg_gpu_usage || 0 },
+          { name: "内存", value: avg_mem_usage || 0 },
+          { name: "磁盘", value: avg_sys_fileinfo_usage || 0 },
         ];
         return opts;
       });
     }
-    if (props.title === "算法服务器") {
+    if (props.title === "算法服务器" && res.data.algorithmPie && res.data.algorithmPie[0]) {
       const { avg_cpu_usage, avg_gpu_usage, avg_mem_usage, avg_sys_fileinfo_usage } = res.data.algorithmPie[0];
       updateOptions((opts) => {
         opts.series[0].data = [
-          { name: "CPU利用率", value: avg_cpu_usage },
-          { name: "GPU利用率", value: avg_gpu_usage },
-          { name: "内存", value: avg_mem_usage },
-          { name: "磁盘", value: avg_sys_fileinfo_usage },
+          { name: "CPU利用率", value: avg_cpu_usage || 0 },
+          { name: "GPU利用率", value: avg_gpu_usage || 0 },
+          { name: "内存", value: avg_mem_usage || 0 },
+          { name: "磁盘", value: avg_sys_fileinfo_usage || 0 },
         ];
         return opts;
       });

@@ -108,10 +108,55 @@ public class HomeController {
         return Result.ok();
     }
 
-    private HashMap getInfo(SystemStatusEntity systemStatusEntity) {
+    /**
+     * 创建默认的系统信息Map（当数据库中没有数据时使用）
+     */
+    private HashMap createDefaultInfoMap() {
         Info cpu = new Info();
         cpu.setTotal("100%");
-        cpu.setFree(100-Double.parseDouble(systemStatusEntity.getCpuUsage())+"%");
+        cpu.setFree("100%");
+        cpu.setUsed("0%");
+        cpu.setUsage("0%");
+
+        Info gpu = new Info();
+        gpu.setTotal("0MB");
+        gpu.setFree("0MB");
+        gpu.setUsed("0MB");
+        gpu.setUsage("0%");
+
+        Info mem = new Info();
+        mem.setTotal("0B");
+        mem.setFree("0B");
+        mem.setUsed("0B");
+        mem.setUsage("0%");
+
+        Info disk = new Info();
+        disk.setTotal("0B");
+        disk.setFree("0B");
+        disk.setUsed("0B");
+        disk.setUsage("0%");
+
+        HashMap serverMap = new HashMap();
+        serverMap.put("cpu", cpu);
+        serverMap.put("gpu", gpu);
+        serverMap.put("sysFileinfo", disk);
+        serverMap.put("mem", mem);
+        return serverMap;
+    }
+
+    private HashMap getInfo(SystemStatusEntity systemStatusEntity) {
+        // 添加空指针检查
+        if (systemStatusEntity == null) {
+            return createDefaultInfoMap();
+        }
+
+        Info cpu = new Info();
+        cpu.setTotal("100%");
+        if(ObjectUtil.isNotEmpty(systemStatusEntity.getCpuUsage())){
+            cpu.setFree(100-Double.parseDouble(systemStatusEntity.getCpuUsage())+"%");
+        }else{
+            cpu.setFree("100%");
+        }
 //        cpu.setUsed(systemStatusEntity.getCpuUsed()+"ticks");
         if(ObjectUtil.isNotEmpty(systemStatusEntity.getCpuUsed())){
             cpu.setUsed(systemStatusEntity.getCpuUsage()+"%");
