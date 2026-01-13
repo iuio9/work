@@ -130,7 +130,7 @@ public class TrainingExecutionService {
             Process process = pb.start();
             runningProcesses.put(taskId, process);
 
-            logger.info("Python训练进程已启动: PID={}", process.pid());
+            logger.info("Python训练进程已启动，任务ID: {}", taskId);
 
             // 6. 读取并打印输出
             try (BufferedReader reader = new BufferedReader(
