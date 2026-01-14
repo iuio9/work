@@ -1982,7 +1982,10 @@ async function handlePauseTask(task: any) {
 function handleViewTask(task: any) {
   selectedTask.value = task;
   activeTab.value = 'training-monitor';
-  initCharts();
+  // 使用 nextTick 确保 DOM 渲染完成后再初始化图表
+  nextTick(() => {
+    initCharts();
+  });
 }
 
 // 删除任务
@@ -2090,17 +2093,35 @@ function handleDeleteLoraPreset(preset: any) {
 // 初始化图表
 function initCharts() {
   setTimeout(() => {
-    initLossChart();
-    initAccuracyChart();
-    initGpuChart();
-    initMemoryChart();
+    try {
+      initLossChart();
+      initAccuracyChart();
+      initGpuChart();
+      initMemoryChart();
+    } catch (error) {
+      console.error('图表初始化失败:', error);
+      // 即使图表初始化失败，也不影响其他功能
+    }
   }, 100);
 }
 
 // 初始化损失曲线图表
 function initLossChart() {
-  if (!lossChartRef.value) return;
-  lossChart = echarts.init(lossChartRef.value);
+  if (!lossChartRef.value) {
+    console.warn('lossChartRef 未找到，跳过初始化');
+    return;
+  }
+
+  try {
+    // 如果已存在实例，先销毁
+    if (lossChart) {
+      lossChart.dispose();
+    }
+    lossChart = echarts.init(lossChartRef.value);
+  } catch (error) {
+    console.error('损失曲线图表初始化失败:', error);
+    return;
+  }
 
   const option = {
     title: {
@@ -2160,8 +2181,20 @@ function initLossChart() {
 
 // 初始化准确率图表
 function initAccuracyChart() {
-  if (!accuracyChartRef.value) return;
-  accuracyChart = echarts.init(accuracyChartRef.value);
+  if (!accuracyChartRef.value) {
+    console.warn('accuracyChartRef 未找到，跳过初始化');
+    return;
+  }
+
+  try {
+    if (accuracyChart) {
+      accuracyChart.dispose();
+    }
+    accuracyChart = echarts.init(accuracyChartRef.value);
+  } catch (error) {
+    console.error('准确率曲线图表初始化失败:', error);
+    return;
+  }
 
   const option = {
     title: {
@@ -2218,8 +2251,20 @@ function initAccuracyChart() {
 
 // 初始化 GPU 使用率图表
 function initGpuChart() {
-  if (!gpuChartRef.value) return;
-  gpuChart = echarts.init(gpuChartRef.value);
+  if (!gpuChartRef.value) {
+    console.warn('gpuChartRef 未找到，跳过初始化');
+    return;
+  }
+
+  try {
+    if (gpuChart) {
+      gpuChart.dispose();
+    }
+    gpuChart = echarts.init(gpuChartRef.value);
+  } catch (error) {
+    console.error('GPU使用率图表初始化失败:', error);
+    return;
+  }
 
   const option = {
     tooltip: {
@@ -2266,8 +2311,20 @@ function initGpuChart() {
 
 // 初始化显存使用图表
 function initMemoryChart() {
-  if (!memoryChartRef.value) return;
-  memoryChart = echarts.init(memoryChartRef.value);
+  if (!memoryChartRef.value) {
+    console.warn('memoryChartRef 未找到，跳过初始化');
+    return;
+  }
+
+  try {
+    if (memoryChart) {
+      memoryChart.dispose();
+    }
+    memoryChart = echarts.init(memoryChartRef.value);
+  } catch (error) {
+    console.error('内存使用率图表初始化失败:', error);
+    return;
+  }
 
   const option = {
     tooltip: {
