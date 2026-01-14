@@ -1434,7 +1434,7 @@ const taskColumns = [
                 disabled: row.status === 'RUNNING',
                 onClick: () => handleStartTask(row)
               },
-              { default: () => '启动', icon: () => h(NIcon, { component: PlayOutline }) }
+              () => '启动'
             ),
             h(
               NButton,
@@ -1444,7 +1444,7 @@ const taskColumns = [
                 disabled: row.status !== 'RUNNING',
                 onClick: () => handlePauseTask(row)
               },
-              { default: () => '暂停', icon: () => h(NIcon, { component: PauseOutline }) }
+              () => '暂停'
             ),
             h(
               NButton,
@@ -1452,7 +1452,7 @@ const taskColumns = [
                 size: 'small',
                 onClick: () => handleViewTask(row)
               },
-              { default: () => '监控', icon: () => h(NIcon, { component: EyeOutline }) }
+              () => '监控'
             ),
             h(
               NButton,
@@ -1461,7 +1461,7 @@ const taskColumns = [
                 type: 'error',
                 onClick: () => handleDeleteTask(row)
               },
-              { default: () => '删除', icon: () => h(NIcon, { component: TrashOutline }) }
+              () => '删除'
             )
           ]
         }
@@ -1536,7 +1536,7 @@ const loraPresetColumns = [
                 type: 'error',
                 onClick: () => handleDeleteLoraPreset(row)
               },
-              { default: () => '删除', icon: () => h(NIcon, { component: TrashOutline }) }
+              () => '删除'
             )
           ]
         }
