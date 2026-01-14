@@ -76,6 +76,53 @@ python3 test_distillation.py
 
 ---
 
+### 6️⃣ 🌟 Qwen2.5-VL蒸馏测试（真实场景！）
+
+```bash
+python3 test_distillation_qwen.py
+```
+
+**这是使用真实大模型（Qwen2.5-VL-3B）的蒸馏测试！**
+
+测试内容：
+- 教师模型：Qwen2.5-VL-3B-Instruct（3B参数多模态大模型）
+- 学生模型：ResNet18（11M参数）
+- 模型压缩：273倍
+- 真实的大→小知识迁移
+
+**前置条件**:
+- 需要先下载Qwen2.5-VL-3B-Instruct模型（约6GB）
+- 需要至少8GB GPU显存（推荐12GB+）
+- 或者设置环境变量使用在线模型
+
+**预计用时**:
+- GPU (>8GB显存): 10-20分钟
+- GPU (<8GB显存): 可能OOM
+- CPU: 不推荐（太慢）
+
+**如何下载Qwen2.5-VL模型**:
+```bash
+# 方式1: Hugging Face
+huggingface-cli download Qwen/Qwen2.5-VL-3B-Instruct \
+  --local-dir /home/user/models/qwen2.5-vl-3b-instruct
+
+# 方式2: ModelScope（国内推荐）
+pip install modelscope
+python << EOF
+from modelscope import snapshot_download
+snapshot_download('Qwen/Qwen2.5-VL-3B-Instruct',
+                  cache_dir='/home/user/models/qwen2.5-vl-3b-instruct')
+EOF
+
+# 方式3: 使用在线模型（需要联网）
+export USE_ONLINE_MODEL=1
+python3 test_distillation_qwen.py
+```
+
+**这是最接近真实应用场景的测试！**
+
+---
+
 ## 📚 详细文档
 
 - **[Python测试指南](PYTHON_TESTING_GUIDE.md)** - 逐步测试说明、常见问题、性能基准
@@ -92,6 +139,7 @@ python3 test_distillation.py
 | `test_model_loading.py` | 测试模型加载 | ⭐ 推荐 | 10-30秒 |
 | `test_simple_training.py` | 完整训练流程 | ⚪ 可选 | 2-60分钟 |
 | `test_distillation.py` | 🎓 **知识蒸馏（核心）** | 🔥 **强烈推荐** | 5-120分钟 |
+| `test_distillation_qwen.py` | 🌟 **Qwen2.5-VL蒸馏（真实）** | 💎 **最佳体验** | 10-20分钟 |
 
 ---
 
