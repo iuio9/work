@@ -1660,13 +1660,19 @@ const inferenceColumns = [
 // ==================== 方法 ====================
 
 // 获取状态类型
-function getStatusType(status: string) {
+function getStatusType(status: string | null | undefined) {
+  // 添加空值检查
+  if (!status) {
+    return 'default';
+  }
+
   const statusMap: Record<string, any> = {
     RUNNING: 'success',
     PENDING: 'warning',
     COMPLETED: 'info',
     FAILED: 'error',
-    PAUSED: 'default'
+    PAUSED: 'default',
+    STOPPED: 'warning'
   };
   return statusMap[status] || 'default';
 }
@@ -1805,6 +1811,18 @@ async function refreshTasks() {
     if (res.code === 200 || res.code === 0 || (res.data !== undefined && !res.error)) {
       tasks.value = res.data || [];
       console.log('训练任务列表:', tasks.value);
+
+      // 如果当前有选中的任务，需要同步更新 selectedTask
+      if (selectedTask.value && selectedTask.value.taskId) {
+        const updatedTask = tasks.value.find(t => t.taskId === selectedTask.value.taskId);
+        if (updatedTask) {
+          // 更新为最新数据
+          selectedTask.value = updatedTask;
+        } else {
+          // 任务已被删除，清空选中
+          selectedTask.value = null;
+        }
+      }
     } else {
       message.error(res.message || getErrorMessage(res.error) || '获取任务列表失败');
       tasks.value = [];
