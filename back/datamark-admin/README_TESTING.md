@@ -54,6 +54,28 @@ python3 test_simple_training.py
 
 ---
 
+### 5️⃣ 🎓 知识蒸馏测试（核心功能！）
+
+```bash
+python3 test_distillation.py
+```
+
+**这是大小模型协同训练的核心测试！**
+
+测试内容：
+- 教师模型（ResNet101大模型）→ 学生模型（ResNet18小模型）
+- 蒸馏损失计算（KL散度 + 交叉熵）
+- 温度参数软化
+- 与普通训练的对比
+
+**预计用时**:
+- GPU: 5-10分钟
+- CPU: 1-2小时（可Ctrl+C提前终止）
+
+**这个测试直接验证了知识蒸馏是否工作！**
+
+---
+
 ## 📚 详细文档
 
 - **[Python测试指南](PYTHON_TESTING_GUIDE.md)** - 逐步测试说明、常见问题、性能基准
@@ -69,6 +91,7 @@ python3 test_simple_training.py
 | `test_dataset_loading.py` | 测试数据集加载 | ⭐ 推荐 | 30秒-2分钟 |
 | `test_model_loading.py` | 测试模型加载 | ⭐ 推荐 | 10-30秒 |
 | `test_simple_training.py` | 完整训练流程 | ⚪ 可选 | 2-60分钟 |
+| `test_distillation.py` | 🎓 **知识蒸馏（核心）** | 🔥 **强烈推荐** | 5-120分钟 |
 
 ---
 
