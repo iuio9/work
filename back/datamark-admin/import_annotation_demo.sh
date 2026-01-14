@@ -15,8 +15,8 @@ echo ""
 
 # 配置
 DB_USER="root"
-DB_PASSWORD="qczy1717"
-DB_NAME="datamark"
+DB_PASSWORD="20031217scz"
+DB_NAME="mark"
 DB_HOST="localhost"
 DB_PORT="3306"
 SQL_FILE="demo_annotation_data.sql"
