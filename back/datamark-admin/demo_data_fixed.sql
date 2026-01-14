@@ -203,7 +203,7 @@ FROM (
 -- ================================================================================
 INSERT INTO md_model_evaluation (
     task_id,
-    precision, recall, f1_score,
+    `precision`, `recall`, `f1_score`,
     eval_dataset_id, eval_dataset_name, eval_sample_count,
     eval_time,
     detailed_results
