@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
+import javax.annotation.PostConstruct;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStreamReader;
@@ -50,6 +51,61 @@ public class TrainingInferenceService {
 
     // 推理任务状态缓存
     private final Map<String, InferenceResultDTO> inferenceResults = new ConcurrentHashMap<>();
+
+    /**
+     * 初始化演示推理任务数据
+     */
+    @PostConstruct
+    public void initDemoInferenceData() {
+        logger.info("初始化演示推理任务数据...");
+
+        // 演示任务1：已完成的推理任务
+        InferenceResultDTO demo1 = new InferenceResultDTO();
+        demo1.setInferenceId("DEMO_INF_COMPLETED_001");
+        demo1.setTaskId("DEMO_COMPLETED");
+        demo1.setModelType("ResNet18");
+        demo1.setStatus("COMPLETED");
+        demo1.setStartTime("2026-01-14T12:00:00");
+        demo1.setEndTime("2026-01-14T12:15:30");
+        demo1.setOutputDir("/data/inference_results/DEMO_INF_COMPLETED_001");
+        demo1.setProcessedImages(150);
+        demo1.setSuccessCount(148);
+        demo1.setFailureCount(2);
+        demo1.setProgress(100);
+        inferenceResults.put(demo1.getInferenceId(), demo1);
+
+        // 演示任务2：运行中的推理任务
+        InferenceResultDTO demo2 = new InferenceResultDTO();
+        demo2.setInferenceId("DEMO_INF_RUNNING_002");
+        demo2.setTaskId("DEMO_COMPLETED");
+        demo2.setModelType("ResNet18");
+        demo2.setStatus("RUNNING");
+        demo2.setStartTime(LocalDateTime.now().minusMinutes(5).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+        demo2.setOutputDir("/data/inference_results/DEMO_INF_RUNNING_002");
+        demo2.setProcessedImages(45);
+        demo2.setSuccessCount(45);
+        demo2.setFailureCount(0);
+        demo2.setProgress(45);
+        inferenceResults.put(demo2.getInferenceId(), demo2);
+
+        // 演示任务3：失败的推理任务
+        InferenceResultDTO demo3 = new InferenceResultDTO();
+        demo3.setInferenceId("DEMO_INF_FAILED_003");
+        demo3.setTaskId("DEMO_PAUSED");
+        demo3.setModelType("ResNet18");
+        demo3.setStatus("FAILED");
+        demo3.setStartTime("2026-01-14T11:30:00");
+        demo3.setEndTime("2026-01-14T11:32:15");
+        demo3.setOutputDir("/data/inference_results/DEMO_INF_FAILED_003");
+        demo3.setProcessedImages(12);
+        demo3.setSuccessCount(10);
+        demo3.setFailureCount(2);
+        demo3.setProgress(12);
+        demo3.setErrorMessage("模型文件不存在或已损坏");
+        inferenceResults.put(demo3.getInferenceId(), demo3);
+
+        logger.info("演示推理任务数据初始化完成，共 {} 个任务", inferenceResults.size());
+    }
 
     /**
      * 提交推理任务（异步执行）
