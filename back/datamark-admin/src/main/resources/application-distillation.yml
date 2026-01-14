@@ -1,0 +1,177 @@
+# ================================================================================
+# 模型蒸馏训练配置文件
+# ================================================================================
+# 用途：配置Python训练环境、模型路径、数据集路径等
+# 使用：在 application.yml 中 include 此配置，或者直接复制到 application-dev.yml
+# ================================================================================
+
+# Python训练环境配置
+training:
+  python:
+    # ========================================
+    # Python可执行文件路径配置
+    # ========================================
+    # 方式1: 使用系统默认Python
+    executable: python3
+
+    # 方式2: 使用绝对路径
+    # executable: /usr/bin/python3
+
+    # 方式3: 使用虚拟环境中的Python（推荐）
+    # executable: /home/user/work/back/datamark-admin/venv/bin/python
+    # 或者配置虚拟环境路径，系统会自动使用venv/bin/python
+    # venv-path: /home/user/work/back/datamark-admin/venv
+
+    # ========================================
+    # 训练脚本配置
+    # ========================================
+    # 训练脚本所在目录（绝对路径或相对路径）
+    script-dir: /home/user/work/back/datamark-admin/python_scripts
+
+    # 蒸馏训练脚本名称
+    distillation-script: distillation_train.py
+
+    # Python虚拟环境路径（可选）
+    # 如果配置了此项，系统会优先使用虚拟环境中的python
+    venv-path: /home/user/work/back/datamark-admin/venv
+
+  # ========================================
+  # 模型路径配置
+  # ========================================
+  models:
+    # 教师模型根目录
+    # 包含各种大模型：Qwen2.5-VL, ResNet101, ViT-Large等
+    teacher-model-root: /home/user/models
+
+    # Qwen2.5-VL教师模型路径
+    teacher-model-path: /home/user/models/qwen2.5-vl-3b-instruct
+
+    # 学生模型保存目录
+    # 训练完成的学生模型会保存在这里，按任务ID分目录
+    student-model-path: /home/user/work/models/students
+
+    # 模型checkpoint保存目录（训练过程中的临时checkpoints）
+    checkpoint-path: /home/user/work/models/checkpoints
+
+  # ========================================
+  # 数据集路径配置
+  # ========================================
+  datasets:
+    # 数据集根目录
+    root-path: /home/user/datasets
+
+    # 具体数据集路径（可选，如果不配置会使用root-path下的子目录）
+    cifar10-path: /home/user/datasets/cifar-10-python
+    cifar100-path: /home/user/datasets/cifar-100-python
+    imagenet-path: /home/user/datasets/imagenet
+    coco-path: /home/user/datasets/coco
+    voc-path: /home/user/datasets/VOCdevkit
+
+  # ========================================
+  # 训练日志配置
+  # ========================================
+  logging:
+    # 训练日志保存目录
+    log-dir: /home/user/work/logs/training
+
+    # 是否保存Python训练脚本的输出到文件
+    save-to-file: true
+
+    # 日志文件命名格式：{task-id}_{timestamp}.log
+    log-file-pattern: "{task-id}_{timestamp}.log"
+
+  # ========================================
+  # GPU/CUDA配置
+  # ========================================
+  gpu:
+    # 是否启用GPU加速
+    enabled: true
+
+    # 默认使用的GPU设备ID（可以在创建任务时覆盖）
+    # 例如：0 表示使用第一个GPU
+    #      0,1 表示使用第一个和第二个GPU
+    default-device: 0
+
+    # 是否允许自动选择GPU（根据显存占用情况）
+    auto-select: false
+
+  # ========================================
+  # 训练超参数默认值
+  # ========================================
+  hyperparameters:
+    # 默认批次大小
+    default-batch-size: 32
+
+    # 默认训练轮数
+    default-epochs: 50
+
+    # 默认学习率
+    default-learning-rate: 0.001
+
+    # 默认蒸馏温度
+    default-temperature: 4.0
+
+    # 默认蒸馏权重（alpha）
+    default-alpha: 0.7
+
+    # 数据加载器worker数量
+    num-workers: 4
+
+  # ========================================
+  # 任务管理配置
+  # ========================================
+  task:
+    # 最大并发训练任务数
+    max-concurrent-tasks: 3
+
+    # 任务超时时间（小时）
+    timeout-hours: 48
+
+    # 是否自动保存checkpoint
+    auto-checkpoint: true
+
+    # checkpoint保存间隔（epochs）
+    checkpoint-interval: 5
+
+# ================================================================================
+# 配置说明
+# ================================================================================
+#
+# 1. Python环境配置优先级：
+#    venv-path > executable（如果配置了venv-path）
+#
+# 2. 路径配置说明：
+#    - 可以使用绝对路径（推荐）：/home/user/work/...
+#    - 也可以使用相对路径：相对于项目根目录
+#
+# 3. 虚拟环境配置（推荐）：
+#    a. 创建虚拟环境：
+#       cd /home/user/work/back/datamark-admin
+#       python3 -m venv venv
+#
+#    b. 激活并安装依赖：
+#       source venv/bin/activate
+#       pip install torch torchvision transformers peft ultralytics
+#
+#    c. 配置虚拟环境路径：
+#       venv-path: /home/user/work/back/datamark-admin/venv
+#
+# 4. GPU配置说明：
+#    - 如果有多个GPU，可以通过CUDA_VISIBLE_DEVICES环境变量控制
+#    - 系统会自动将gpu.default-device设置到Python脚本中
+#
+# 5. 数据集路径说明：
+#    - 如果使用自动下载的CIFAR-10，通常在 ~/.cache/torch/datasets/
+#    - 建议统一放到 /home/user/datasets/ 目录下
+#
+# 6. 模型路径说明：
+#    - 教师模型（Qwen2.5-VL等）需要手动下载到指定路径
+#    - 学生模型会自动保存到 student-model-path 目录
+#
+# 7. 日志配置说明：
+#    - 训练日志会同时输出到：
+#      a. Spring Boot日志（log.info）
+#      b. 文件（如果save-to-file=true）
+#      c. 可以通过WebSocket实时推送给前端
+#
+# ================================================================================
