@@ -71,7 +71,7 @@ public class TrainingInferenceService {
         demo1.setProcessedImages(150);
         demo1.setSuccessCount(148);
         demo1.setFailureCount(2);
-        demo1.setProgress(100);
+        demo1.setDuration(930L); // 15分30秒
         inferenceResults.put(demo1.getInferenceId(), demo1);
 
         // 演示任务2：运行中的推理任务
@@ -85,7 +85,6 @@ public class TrainingInferenceService {
         demo2.setProcessedImages(45);
         demo2.setSuccessCount(45);
         demo2.setFailureCount(0);
-        demo2.setProgress(45);
         inferenceResults.put(demo2.getInferenceId(), demo2);
 
         // 演示任务3：失败的推理任务
@@ -100,7 +99,7 @@ public class TrainingInferenceService {
         demo3.setProcessedImages(12);
         demo3.setSuccessCount(10);
         demo3.setFailureCount(2);
-        demo3.setProgress(12);
+        demo3.setDuration(135L); // 2分15秒
         demo3.setErrorMessage("模型文件不存在或已损坏");
         inferenceResults.put(demo3.getInferenceId(), demo3);
 
