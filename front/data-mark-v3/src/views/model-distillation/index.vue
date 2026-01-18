@@ -2450,9 +2450,15 @@ const showInferenceDialog = ref(false);
 const selectedTaskForInference = ref<any>(null);
 
 function handleUseModelForAnnotation(row: any) {
-  // 打开推理对话框
-  selectedTaskForInference.value = row;
-  showInferenceDialog.value = true;
+  // 跳转到自动标注页面 localhost:5000
+  // 可以通过URL参数传递模型信息
+  const annotationUrl = `http://localhost:5000?taskId=${row.taskId}&modelName=${encodeURIComponent(row.taskName)}`;
+
+  // 在新标签页打开
+  window.open(annotationUrl, '_blank');
+
+  // 提示用户
+  message.success('正在打开自动标注页面...');
 }
 
 function handleInferenceSuccess(inferenceId: string) {
