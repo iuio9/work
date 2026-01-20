@@ -1813,6 +1813,9 @@ async function refreshTasks() {
       tasks.value = res.data || [];
       console.log('训练任务列表:', tasks.value);
 
+      // 使用 nextTick 确保在下一个渲染周期更新 selectedTask，避免DOM冲突
+      await nextTick();
+
       // 如果当前有选中的任务，需要同步更新 selectedTask
       if (selectedTask.value && selectedTask.value.taskId) {
         const updatedTask = tasks.value.find(t => t.taskId === selectedTask.value.taskId);
@@ -1887,9 +1890,10 @@ async function handleCreateTask() {
     if (res.code === 200 || res.code === 0 || (res.data && !res.error)) {
       message.success('训练任务创建成功！');
       showCreateTaskModal.value = false;
-      // 使用 nextTick 确保模态框关闭后再刷新列表
-      await nextTick();
-      await refreshTasks();
+      // 延迟刷新，确保模态框动画完成后再刷新列表，避免DOM更新冲突
+      setTimeout(async () => {
+        await refreshTasks();
+      }, 300);
     } else {
       message.error(res.message || getErrorMessage(res.error) || '创建任务失败');
     }
