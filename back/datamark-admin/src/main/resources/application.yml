@@ -3,6 +3,7 @@ spring:
 #    active: zidonghuasuo2.0
 #    active: aliyun
     active: test
+    include: distillation  # 包含模型蒸馏训练配置
   # 修复Swagger与Spring Boot 2.6+兼容性问题
   mvc:
     pathmatch:
