@@ -3,28 +3,28 @@ distillation:
   # Python解释器路径
   # 建议使用虚拟环境中的Python
   python:
-    path: python3  # 或者 /path/to/your/venv/bin/python
+    path: python  # Windows系统，如果Python在PATH中直接用python；否则填写完整路径如：D:/pythonProject2/venv/Scripts/python.exe
 
-  # 训练脚本路径
+  # 训练脚本路径（Windows路径格式）
   script:
-    path: /home/user/work/back/datamark-admin/train_distillation.py
+    path: D:/pythonProject2/train_distillation.py
 
   # Qwen2.5-VL训练脚本路径
   qwen-script:
-    path: /home/user/work/back/datamark-admin/train_qwen_vl_distillation.py
+    path: D:/pythonProject2/train_qwen_vl_distillation.py
 
   # 推理脚本路径（自动标注）
   inference-script:
-    path: /home/user/work/back/datamark-admin/inference_qwen_vl_distilled_models.py
+    path: D:/pythonProject2/inference_qwen_vl_distilled_models.py
 
   # 后端API基础URL
   # 训练脚本通过此URL回调更新进度
   api:
     base-url: http://localhost:8080
 
-  # 模型存储根目录
+  # 模型存储根目录（Windows路径格式）
   models:
-    root: /data/models
+    root: D:/pythonProject2/models
     # 示例结构：
     # /data/models/
     #   ├── llama-2-7b/           # 教师模型
@@ -35,23 +35,23 @@ distillation:
     #       ├── config.json
     #       └── pytorch_model.bin
 
-  # 数据集根目录
+  # 数据集根目录（Windows路径格式）
   datasets:
-    root: /data/datasets
+    root: D:/pythonProject2/datasets
     # 示例结构：
-    # /data/datasets/
-    #   ├── dataset_001/
+    # D:/pythonProject2/datasets/
+    #   ├── qa-zh-v1/
     #   │   ├── train/
-    #   │   │   ├── data_0001.json
-    #   │   │   └── data_0002.json
+    #   │   │   ├── image001.jpg
+    #   │   │   └── image002.jpg
     #   │   └── val/
-    #   │       └── data_val.json
-    #   └── dataset_002/
+    #   │       └── image_val.jpg
+    #   └── custom/
     #       └── ...
 
-  # 训练输出根目录
+  # 训练输出根目录（Windows路径格式）
   output:
-    root: /data/training_output
+    root: D:/pythonProject2/training_output
     # 自动创建子目录：/data/training_output/{taskId}/
     # 包含：
     #   ├── checkpoint-epoch-1/
