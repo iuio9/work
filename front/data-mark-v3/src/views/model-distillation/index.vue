@@ -1140,6 +1140,7 @@ const distillLossOptions = [
 
 // 数据集选项（示例）
 const datasetOptions = [
+  { label: 'CIFAR-10图像分类数据集', value: 'cifar10' },
   { label: '中文问答数据集 v1', value: 'qa-zh-v1' },
   { label: '中文对话数据集 v2', value: 'dialogue-zh-v2' },
   { label: '英文指令数据集', value: 'instruction-en' },
