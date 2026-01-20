@@ -954,7 +954,7 @@ const taskStats = ref({
 // 教师模型配置
 const teacherModel = ref({
   modelId: '',
-  modelPath: '',
+  modelPath: 'D:\\pythonProject2\\models\\Qwen2___5-VL-3B-Instruct',
   paramSize: '',
   quantization: 'none'
 });
