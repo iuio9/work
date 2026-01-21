@@ -1813,20 +1813,9 @@ async function refreshTasks() {
       tasks.value = res.data || [];
       console.log('训练任务列表:', tasks.value);
 
-      // 使用 nextTick 确保在下一个渲染周期更新 selectedTask，避免DOM冲突
-      await nextTick();
-
-      // 如果当前有选中的任务，需要同步更新 selectedTask
-      if (selectedTask.value && selectedTask.value.taskId) {
-        const updatedTask = tasks.value.find(t => t.taskId === selectedTask.value.taskId);
-        if (updatedTask) {
-          // 更新为最新数据
-          selectedTask.value = updatedTask;
-        } else {
-          // 任务已被删除，清空选中
-          selectedTask.value = null;
-        }
-      }
+      // ✅ 移除对 selectedTask 的更新，避免DOM冲突
+      // 如果需要更新 selectedTask，应该在用户主动点击"监控"按钮时更新
+      // 这样可以避免在模态框关闭等过渡动画期间触发不必要的DOM更新
     } else {
       message.error(res.message || getErrorMessage(res.error) || '获取任务列表失败');
       tasks.value = [];
@@ -1890,9 +1879,9 @@ async function handleCreateTask() {
     if (res.code === 200 || res.code === 0 || (res.data && !res.error)) {
       message.success('训练任务创建成功！');
       showCreateTaskModal.value = false;
-      // 延迟刷新，确保模态框动画完成后再刷新列表，避免DOM更新冲突
-      setTimeout(async () => {
-        await refreshTasks();
+      // 延迟刷新任务列表，确保模态框关闭动画完成
+      setTimeout(() => {
+        refreshTasks();
       }, 300);
     } else {
       message.error(res.message || getErrorMessage(res.error) || '创建任务失败');
