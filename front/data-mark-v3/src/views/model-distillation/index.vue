@@ -43,7 +43,7 @@
       </n-space>
 
       <!-- 主体标签页 -->
-      <n-tabs v-model:value="activeTab" type="line" animated>
+      <n-tabs v-model:value="activeTab" type="line" display-directive="show">
         <!-- 1. 模型配置标签页 -->
         <n-tab-pane name="model-config" tab="模型配置">
           <div class="p-4">
@@ -347,7 +347,7 @@
                 :loading="tasksLoading"
                 :bordered="false"
                 :pagination="taskPagination"
-                :row-key="(row) => row.taskId"
+                :row-key="(row) => row._rowKey"
               />
             </n-space>
           </div>
@@ -954,7 +954,7 @@ const taskStats = ref({
 // 教师模型配置
 const teacherModel = ref({
   modelId: '',
-  modelPath: 'D:\\pythonProject2\\models\\Qwen2___5-VL-3B-Instruct',
+  modelPath: '',
   paramSize: '',
   quantization: 'none'
 });
@@ -1068,32 +1068,16 @@ const trainedModelsPagination = {
 
 // 教师模型选项
 const teacherModelOptions = [
-  { label: 'LLaMA-2-7B', value: 'llama2-7b', paramSize: '7B' },
-  { label: 'LLaMA-2-13B', value: 'llama2-13b', paramSize: '13B' },
-  { label: 'LLaMA-2-70B', value: 'llama2-70b', paramSize: '70B' },
-  { label: 'Qwen-7B', value: 'qwen-7b', paramSize: '7B' },
-  { label: 'Qwen-14B', value: 'qwen-14b', paramSize: '14B' },
-  { label: 'Qwen2.5-VL-8B', value: 'qwen2.5-vl-8b', paramSize: '8B' },
-  { label: 'Baichuan2-7B', value: 'baichuan2-7b', paramSize: '7B' },
-  { label: 'Baichuan2-13B', value: 'baichuan2-13b', paramSize: '13B' },
-  { label: 'ChatGLM3-6B', value: 'chatglm3-6b', paramSize: '6B' },
-  { label: 'InternLM-7B', value: 'internlm-7b', paramSize: '7B' }
+  { label: 'Qwen2.5-VL-3B', value: 'qwen2.5-vl-3b', paramSize: '3B' }
 ];
 
 // 学生模型选项
 const studentModelOptions = [
-  { label: 'TinyLLaMA-1.1B', value: 'tinyllama-1.1b', paramSize: '1.1B' },
-  { label: 'MiniGPT-350M', value: 'minigpt-350m', paramSize: '350M' },
-  { label: 'DistilBERT-110M', value: 'distilbert-110m', paramSize: '110M' },
-  { label: 'BERT-Base-110M', value: 'bert-base-110m', paramSize: '110M' },
-  { label: 'GPT-2-Small-117M', value: 'gpt2-small-117m', paramSize: '117M' },
-  { label: 'T5-Small-60M', value: 't5-small-60m', paramSize: '60M' },
   { label: 'ResNet (图像分类)', value: 'resnet', paramSize: 'Variable' },
   { label: 'Vision Transformer (图像分类)', value: 'vit', paramSize: 'Variable' },
   { label: 'YOLOv8 (目标检测)', value: 'yolov8', paramSize: 'Variable' },
   { label: 'UNet (图像分割)', value: 'unet', paramSize: 'Variable' },
-  { label: 'LSTM (序列特征提取)', value: 'lstm', paramSize: 'Variable' },
-  { label: 'Custom Model', value: 'custom', paramSize: 'Custom' }
+  { label: 'LSTM (序列特征提取)', value: 'lstm', paramSize: 'Variable' }
 ];
 
 // 量化选项
@@ -1140,12 +1124,7 @@ const distillLossOptions = [
 
 // 数据集选项（示例）
 const datasetOptions = [
-  { label: 'CIFAR-10图像分类数据集', value: 'cifar10' },
-  { label: '中文问答数据集 v1', value: 'qa-zh-v1' },
-  { label: '中文对话数据集 v2', value: 'dialogue-zh-v2' },
-  { label: '英文指令数据集', value: 'instruction-en' },
-  { label: '多轮对话数据集', value: 'multi-turn' },
-  { label: '自定义数据集', value: 'custom' }
+  { label: 'CIFAR-10图像分类数据集', value: 'cifar10' }
 ];
 
 // 学习率调度器
@@ -1210,14 +1189,24 @@ const isQwenTeacher = computed(() => {
           teacherModel.value.modelId.toLowerCase().includes('qwen2'));
 });
 
+const normalizedTasks = computed(() => {
+  if (!Array.isArray(tasks.value)) return [];
+  return tasks.value
+    .filter((task): task is Record<string, any> => task && typeof task === 'object')
+    .map((task, index) => ({
+      ...task,
+      _rowKey: task.taskId ?? task.id ?? `task-${index}`
+    }));
+});
+
 const filteredTasks = computed(() => {
-  if (!taskSearchKeyword.value) return tasks.value;
+  if (!taskSearchKeyword.value) return normalizedTasks.value;
   const keyword = taskSearchKeyword.value.toLowerCase();
-  return tasks.value.filter(
-    task =>
-      task.taskName.toLowerCase().includes(keyword) ||
-      task.taskId.toLowerCase().includes(keyword)
-  );
+  return normalizedTasks.value.filter(task => {
+    const taskName = String(task.taskName || '').toLowerCase();
+    const taskId = String(task.taskId || '').toLowerCase();
+    return taskName.includes(keyword) || taskId.includes(keyword);
+  });
 });
 
 const taskPagination = {
@@ -1226,7 +1215,7 @@ const taskPagination = {
 
 // 已训练模型筛选
 const filteredCompletedModels = computed(() => {
-  let filtered = tasks.value.filter(task => task.status === 'COMPLETED' && task.accuracy && task.accuracy > 0);
+  let filtered = normalizedTasks.value.filter(task => task.status === 'COMPLETED' && task.accuracy && task.accuracy > 0);
 
   const search = trainedModelsSearch.value;
 
@@ -1361,37 +1350,53 @@ const taskColumns = [
     title: '任务ID',
     key: 'taskId',
     width: 150,
-    ellipsis: { tooltip: true }
+    ellipsis: { tooltip: true },
+    render(row: any) {
+      return String(row.taskId ?? row.id ?? '-');
+    }
   },
   {
     title: '任务名称',
     key: 'taskName',
-    width: 200
+    width: 200,
+    render(row: any) {
+      return String(row.taskName ?? '-');
+    }
   },
   {
     title: '教师模型',
     key: 'teacherModel',
-    width: 150
+    width: 150,
+    render(row: any) {
+      return String(row.teacherModel ?? '-');
+    }
   },
   {
     title: '学生模型',
     key: 'studentModel',
-    width: 150
+    width: 150,
+    render(row: any) {
+      return String(row.studentModel ?? '-');
+    }
   },
   {
     title: 'LoRA Rank',
     key: 'loraRank',
-    width: 100
+    width: 100,
+    render(row: any) {
+      return row.loraRank ?? '-';
+    }
   },
   {
     title: '状态',
     key: 'status',
     width: 120,
     render(row: any) {
+      const statusText = row.status ?? '-';
       return h(
         NTag,
         { type: getStatusType(row.status) },
-        { default: () => row.status }
+        { default: () => String(statusText) }
       );
     }
   },
@@ -1400,7 +1405,10 @@ const taskColumns = [
     key: 'progress',
     width: 120,
     render(row: any) {
-      return `${row.currentEpoch}/${row.totalEpochs} (${row.progress}%)`;
+      const currentEpoch = row.currentEpoch ?? 0;
+      const totalEpochs = row.totalEpochs ?? 0;
+      const progress = row.progress ?? 0;
+      return `${currentEpoch}/${totalEpochs} (${progress}%)`;
     }
   },
   {
@@ -1408,13 +1416,17 @@ const taskColumns = [
     key: 'accuracy',
     width: 100,
     render(row: any) {
-      return row.accuracy ? `${row.accuracy}%` : '-';
+      if (row.accuracy === null || row.accuracy === undefined) return '-';
+      return `${row.accuracy}%`;
     }
   },
   {
     title: '创建时间',
     key: 'createTime',
-    width: 180
+    width: 180,
+    render(row: any) {
+      return formatDateTime(row.createTime);
+    }
   },
   {
     title: '操作',
@@ -1422,51 +1434,45 @@ const taskColumns = [
     width: 250,
     fixed: 'right',
     render(row: any) {
-      return h(
-        NSpace,
-        {},
-        {
-          default: () => [
-            h(
-              NButton,
-              {
-                size: 'small',
-                type: 'primary',
-                disabled: row.status === 'RUNNING',
-                onClick: () => handleStartTask(row)
-              },
-              () => '启动'
-            ),
-            h(
-              NButton,
-              {
-                size: 'small',
-                type: 'warning',
-                disabled: row.status !== 'RUNNING',
-                onClick: () => handlePauseTask(row)
-              },
-              () => '暂停'
-            ),
-            h(
-              NButton,
-              {
-                size: 'small',
-                onClick: () => handleViewTask(row)
-              },
-              () => '监控'
-            ),
-            h(
-              NButton,
-              {
-                size: 'small',
-                type: 'error',
-                onClick: () => handleDeleteTask(row)
-              },
-              () => '删除'
-            )
-          ]
-        }
-      );
+      return h('div', { class: 'flex gap-8px justify-center' }, [
+        h(
+          NButton,
+          {
+            size: 'small',
+            type: 'primary',
+            disabled: row.status === 'RUNNING',
+            onClick: () => handleStartTask(row)
+          },
+          { default: () => '启动' }
+        ),
+        h(
+          NButton,
+          {
+            size: 'small',
+            type: 'warning',
+            disabled: row.status !== 'RUNNING',
+            onClick: () => handlePauseTask(row)
+          },
+          { default: () => '暂停' }
+        ),
+        h(
+          NButton,
+          {
+            size: 'small',
+            onClick: () => handleViewTask(row)
+          },
+          { default: () => '监控' }
+        ),
+        h(
+          NButton,
+          {
+            size: 'small',
+            type: 'error',
+            onClick: () => handleDeleteTask(row)
+          },
+          { default: () => '删除' }
+        )
+      ]);
     }
   }
 ];
@@ -1801,6 +1807,24 @@ function getErrorMessage(error: any): string {
   }
 }
 
+function formatDateTime(value: any): string {
+  if (!value) return '-';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number') return String(value);
+  if (typeof value === 'object') {
+    const year = value.year;
+    const month = value.monthValue ?? value.month;
+    const day = value.dayOfMonth ?? value.day;
+    if (year && month && day) {
+      const hour = value.hour ?? 0;
+      const minute = value.minute ?? 0;
+      const second = value.second ?? 0;
+      return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')} ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:${String(second).padStart(2, '0')}`;
+    }
+  }
+  return String(value);
+}
+
 // 刷新任务列表
 async function refreshTasks() {
   tasksLoading.value = true;
@@ -1813,9 +1837,17 @@ async function refreshTasks() {
       tasks.value = res.data || [];
       console.log('训练任务列表:', tasks.value);
 
-      // ✅ 移除对 selectedTask 的更新，避免DOM冲突
-      // 如果需要更新 selectedTask，应该在用户主动点击"监控"按钮时更新
-      // 这样可以避免在模态框关闭等过渡动画期间触发不必要的DOM更新
+      // 如果当前有选中的任务，需要同步更新 selectedTask
+      if (selectedTask.value && selectedTask.value.taskId) {
+        const updatedTask = tasks.value.find(t => t.taskId === selectedTask.value.taskId);
+        if (updatedTask) {
+          // 更新为最新数据
+          selectedTask.value = updatedTask;
+        } else {
+          // 任务已被删除，清空选中
+          selectedTask.value = null;
+        }
+      }
     } else {
       message.error(res.message || getErrorMessage(res.error) || '获取任务列表失败');
       tasks.value = [];
@@ -1879,10 +1911,9 @@ async function handleCreateTask() {
     if (res.code === 200 || res.code === 0 || (res.data && !res.error)) {
       message.success('训练任务创建成功！');
       showCreateTaskModal.value = false;
-      // 延迟刷新任务列表，确保模态框关闭动画完成
-      setTimeout(() => {
-        refreshTasks();
-      }, 300);
+      // 使用 nextTick 确保模态框关闭后再刷新列表
+      await nextTick();
+      await refreshTasks();
     } else {
       message.error(res.message || getErrorMessage(res.error) || '创建任务失败');
     }
@@ -1992,10 +2023,15 @@ async function handlePauseTask(task: any) {
 
 // 查看任务
 function handleViewTask(task: any) {
-  selectedTask.value = task;
+  if (!task) {
+    message.warning('任务数据异常，无法打开监控');
+    return;
+  }
+  selectedTask.value = { ...task };
   activeTab.value = 'training-monitor';
   // 使用 nextTick 确保 DOM 渲染完成后再初始化图表
   nextTick(() => {
+    if (activeTab.value !== 'training-monitor') return;
     initCharts();
   });
 }
@@ -2104,6 +2140,7 @@ function handleDeleteLoraPreset(preset: any) {
 
 // 初始化图表
 function initCharts() {
+  if (activeTab.value !== 'training-monitor' || !selectedTask.value) return;
   setTimeout(() => {
     try {
       initLossChart();
@@ -2444,15 +2481,9 @@ const showInferenceDialog = ref(false);
 const selectedTaskForInference = ref<any>(null);
 
 function handleUseModelForAnnotation(row: any) {
-  // 跳转到自动标注页面 localhost:5000
-  // 可以通过URL参数传递模型信息
-  const annotationUrl = `http://localhost:5000?taskId=${row.taskId}&modelName=${encodeURIComponent(row.taskName)}`;
-
-  // 在新标签页打开
-  window.open(annotationUrl, '_blank');
-
-  // 提示用户
-  message.success('正在打开自动标注页面...');
+  // 打开推理对话框
+  selectedTaskForInference.value = row;
+  showInferenceDialog.value = true;
 }
 
 function handleInferenceSuccess(inferenceId: string) {
