@@ -58,6 +58,7 @@ class TrainingConfig:
         # 数据配置
         self.dataset_id = args.dataset_id
         self.val_dataset_id = args.val_dataset_id
+        self.datasets_root = args.datasets_root
 
         # 训练参数
         self.epochs = args.epochs
@@ -110,52 +111,138 @@ class TrainingConfig:
 class ImageAnnotationDataset(Dataset):
     """
     图像标注数据集
-    支持：图像分类、目标检测
+    支持：图像分类（如CIFAR-10）
 
-    实际使用时需要从数据库加载真实的图像标注数据
+    期望的目录结构：
+    dataset_path/
+      ├── class1/
+      │   ├── img1.jpg
+      │   └── img2.jpg
+      ├── class2/
+      │   └── ...
     """
 
     def __init__(
         self,
         dataset_path: str,
-        image_processor,
-        num_samples: int = 1000,
+        image_processor=None,
+        num_samples: int = None,
         image_size: int = 224,
-        num_classes: int = None
+        num_classes: int = None,
+        is_training: bool = True
     ):
         self.dataset_path = dataset_path
         self.image_processor = image_processor
-        self.num_samples = num_samples
         self.image_size = image_size
         self.num_classes = num_classes
+        self.is_training = is_training
+
+        # 存储所有图像路径和标签
+        self.image_paths = []
+        self.labels = []
+        self.class_names = []
+
+        # 检查数据集路径是否存在
+        if os.path.exists(dataset_path):
+            self._load_dataset()
+        else:
+            print(f"⚠️ 警告: 数据集路径不存在: {dataset_path}")
+            print(f"使用模拟数据进行演示")
+            self._use_mock_data(num_samples or 1000)
 
         # 数据增强（训练集）
-        self.transform = transforms.Compose([
-            transforms.Resize((image_size, image_size)),
-            transforms.RandomHorizontalFlip(),
-            transforms.RandomRotation(15),
-            transforms.ColorJitter(brightness=0.2, contrast=0.2),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                               std=[0.229, 0.224, 0.225])
-        ])
+        if self.is_training:
+            self.transform = transforms.Compose([
+                transforms.Resize((image_size, image_size)),
+                transforms.RandomHorizontalFlip(),
+                transforms.RandomRotation(15),
+                transforms.ColorJitter(brightness=0.2, contrast=0.2),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                   std=[0.229, 0.224, 0.225])
+            ])
+        else:
+            # 验证集不使用数据增强
+            self.transform = transforms.Compose([
+                transforms.Resize((image_size, image_size)),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                   std=[0.229, 0.224, 0.225])
+            ])
+
+    def _load_dataset(self):
+        """从目录结构加载真实数据集"""
+        print(f"📂 加载数据集: {self.dataset_path}")
+
+        # 获取所有类别文件夹
+        class_folders = sorted([d for d in os.listdir(self.dataset_path)
+                               if os.path.isdir(os.path.join(self.dataset_path, d))])
+
+        if not class_folders:
+            print(f"⚠️ 警告: 在 {self.dataset_path} 中未找到类别文件夹")
+            self._use_mock_data(1000)
+            return
+
+        self.class_names = class_folders
+        print(f"✅ 找到 {len(self.class_names)} 个类别: {self.class_names}")
+
+        # 遍历每个类别文件夹
+        for class_idx, class_name in enumerate(self.class_names):
+            class_dir = os.path.join(self.dataset_path, class_name)
+
+            # 获取该类别下的所有图像文件
+            image_files = [f for f in os.listdir(class_dir)
+                          if f.lower().endswith(('.jpg', '.jpeg', '.png', '.bmp'))]
+
+            for img_file in image_files:
+                img_path = os.path.join(class_dir, img_file)
+                self.image_paths.append(img_path)
+                self.labels.append(class_idx)
+
+        print(f"✅ 加载完成: 共 {len(self.image_paths)} 张图像")
+
+        # 更新类别数
+        if self.num_classes is None:
+            self.num_classes = len(self.class_names)
+
+    def _use_mock_data(self, num_samples):
+        """使用模拟数据（当真实数据不可用时）"""
+        print(f"🎭 使用模拟数据: {num_samples} 个样本")
+        self.class_names = [f"class_{i}" for i in range(self.num_classes or 10)]
+
+        # 生成模拟路径和标签
+        for i in range(num_samples):
+            self.image_paths.append(f"mock_image_{i}.jpg")
+            self.labels.append(i % len(self.class_names))
 
     def __len__(self):
-        return self.num_samples
+        return len(self.image_paths)
 
     def __getitem__(self, idx):
-        # TODO: 从数据库或文件系统加载真实图像
-        # 这里使用随机图像作为演示
-        # 实际实现应该：
-        # 1. 根据dataset_id从数据库查询图像路径
-        # 2. 加载图像文件
-        # 3. 加载对应的标注（类别/边界框等）
+        img_path = self.image_paths[idx]
+        label = self.labels[idx]
 
-        # 生成随机图像（演示用）
-        image = Image.new('RGB', (self.image_size, self.image_size))
-        import numpy as np
-        image_array = np.random.randint(0, 255, (self.image_size, self.image_size, 3), dtype=np.uint8)
-        image = Image.fromarray(image_array)
+        # 尝试加载真实图像
+        try:
+            if os.path.exists(img_path):
+                image = Image.open(img_path).convert('RGB')
+            else:
+                # 生成随机图像（模拟数据）
+                import numpy as np
+                image_array = np.random.randint(0, 255, (self.image_size, self.image_size, 3), dtype=np.uint8)
+                image = Image.fromarray(image_array)
+        except Exception as e:
+            print(f"⚠️ 加载图像失败 {img_path}: {e}")
+            # 生成随机图像作为后备
+            import numpy as np
+            image_array = np.random.randint(0, 255, (self.image_size, self.image_size, 3), dtype=np.uint8)
+            image = Image.fromarray(image_array)
+
+        # 应用变换
+        if self.transform:
+            image = self.transform(image)
+
+        return image, label
 
         # 应用变换
         pixel_values = self.transform(image)
@@ -593,21 +680,35 @@ class DistillationTrainer:
 
             # 准备数据集（这里使用示例数据，实际需要替换）
             print(f"\n📊 准备图像数据集...")
-            # TODO: 从数据库加载真实的图像标注数据
-            # 实现建议：
-            # 1. 根据dataset_id查询数据库获取图像路径列表
-            # 2. 读取每张图像对应的标注（类别/边界框）
-            # 3. 创建自定义Dataset类加载数据
 
+            # 根据配置构建数据集路径
+            # Windows路径示例: D:/pythonProject2/datasets/cifar10
+            # Linux路径示例: /data/datasets/cifar10
+
+            # 构建训练集路径
+            train_dataset_path = os.path.join(self.config.datasets_root, self.config.dataset_id, "train")
+
+            # 构建验证集路径
+            val_dataset_id = self.config.val_dataset_id or self.config.dataset_id
+            val_dataset_path = os.path.join(self.config.datasets_root, val_dataset_id, "val")
+
+            print(f"训练集路径: {train_dataset_path}")
+            print(f"验证集路径: {val_dataset_path}")
+
+            # 创建训练集（使用数据增强）
             train_dataset = ImageAnnotationDataset(
-                dataset_path=f"/data/datasets/{self.config.dataset_id}",
+                dataset_path=train_dataset_path,
                 image_processor=self.image_processor,
-                num_samples=1000
+                image_size=224,
+                is_training=True
             )
+
+            # 创建验证集（不使用数据增强）
             val_dataset = ImageAnnotationDataset(
-                dataset_path=f"/data/datasets/{self.config.val_dataset_id or self.config.dataset_id}",
+                dataset_path=val_dataset_path,
                 image_processor=self.image_processor,
-                num_samples=200
+                image_size=224,
+                is_training=False
             )
 
             train_loader = DataLoader(
@@ -751,6 +852,9 @@ def parse_args():
 
     # 输出配置
     parser.add_argument("--output_dir", type=str, required=True, help="输出目录")
+
+    # 数据集根目录（新增）
+    parser.add_argument("--datasets_root", type=str, default="/data/datasets", help="数据集根目录")
 
     return parser.parse_args()
 

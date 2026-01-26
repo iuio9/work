@@ -254,6 +254,10 @@ public class TrainingExecutionService {
             command.add(String.valueOf(task.getValDatasetId()));
         }
 
+        // 数据集根目录（从配置文件读取）
+        command.add("--datasets_root");
+        command.add(datasetsRoot);
+
         // ========== 训练参数 ==========
         command.add("--epochs");
         command.add(String.valueOf(task.getTotalEpochs()));
