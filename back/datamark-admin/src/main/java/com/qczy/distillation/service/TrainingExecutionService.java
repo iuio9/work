@@ -255,6 +255,7 @@ public class TrainingExecutionService {
         }
 
         // 数据集根目录（从配置文件读取）
+        logger.info("添加数据集根目录参数: datasetsRoot = {}", datasetsRoot);
         command.add("--datasets_root");
         command.add(datasetsRoot);
 
