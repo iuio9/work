@@ -74,15 +74,15 @@ public class TrainingExecutionService {
     private String modelsRoot;
 
     /**
-     * 数据集根目录
+     * 数据集根目录（必须在配置文件中指定）
      */
-    @Value("${distillation.datasets.root:/data/datasets}")
+    @Value("${distillation.datasets.root}")
     private String datasetsRoot;
 
     /**
-     * 训练输出根目录
+     * 训练输出根目录（必须在配置文件中指定）
      */
-    @Value("${distillation.output.root:/data/training_output}")
+    @Value("${distillation.output.root}")
     private String outputRoot;
 
     /**
