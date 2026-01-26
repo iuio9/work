@@ -4,7 +4,7 @@
 Qwen2.5-VL到多架构小模型的知识蒸馏训练脚本
 
 支持的教师模型：
-- Qwen2.5-VL 8B（多模态视觉-语言模型）
+- Qwen2.5-VL 3B（多模态视觉-语言模型）
 
 支持的学生模型：
 - LSTM：序列特征提取 + 图像分类
@@ -40,11 +40,11 @@ from tqdm import tqdm
 
 # Qwen2.5-VL相关导入
 try:
-    from transformers import Qwen2VLForConditionalGeneration, AutoProcessor
+    from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor
     QWEN_AVAILABLE = True
 except ImportError:
     QWEN_AVAILABLE = False
-    warnings.warn("Qwen2VL模型库未安装，将使用模拟模式")
+    warnings.warn("Qwen2_5_VL模型库未安装，将使用模拟模式")
 
 # 小模型相关导入
 import torchvision.models as models
@@ -56,6 +56,7 @@ from transformers import (
     ViTImageProcessor
 )
 from peft import LoraConfig, get_peft_model, TaskType
+from qwen_vl_utils import process_vision_info
 
 # YOLO相关
 try:
@@ -220,10 +221,10 @@ class TeacherModelLoader:
 
         print(f"正在加载Qwen2.5-VL教师模型: {model_path}")
 
-        model = Qwen2VLForConditionalGeneration.from_pretrained(
+        model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
             model_path,
-            torch_dtype=torch.float16,
-            device_map=device
+            torch_dtype="auto",
+            device_map="cpu"
         )
         processor = AutoProcessor.from_pretrained(model_path)
 
@@ -448,18 +449,38 @@ class QwenMultiModelDistillationTrainer:
             config.num_classes,
             self.device
         )
+        self.student_feature_map = None
+        if config.student_model_type == "resnet":
+            def hook_fn(module, input, output):
+                self.student_feature_map = output
 
-        # 特征对齐层
+            self.student_model.avgpool.register_forward_hook(hook_fn)
         self.feature_aligner = None
         if config.align_feature and config.distillation_type in ['feature', 'hybrid']:
-            teacher_dim = 1280  # Qwen2.5-VL视觉编码器维度
+
             student_dim = self._get_student_feature_dim()
+
+            if self.teacher_model is not None:
+                teacher_dim = self.teacher_model.config.vision_config.hidden_size
+            else:
+                teacher_dim = 1024  # fallback
+
             self.feature_aligner = FeatureAlignmentLayer(
-                teacher_dim, student_dim, use_attention=True
+                teacher_dim,
+                student_dim,
+                use_attention=False
             ).to(self.device)
+        # 特征对齐层
+
+#        '''' if config.align_feature and config.distillation_type in ['feature', 'hybrid']:
+#             teacher_dim = 1280  # Qwen2.5-VL视觉编码器维度
+#             student_dim = self._get_student_feature_dim()
+#             self.feature_aligner = FeatureAlignmentLayer(
+#                 teacher_dim, student_dim, use_attention=True
+#             ).to(self.device)''''
 
         # 应用LoRA（如果需要）
-        if config.lora_rank > 0:
+        if config.lora_rank > 0 and config.student_model_type == "vit":
             self._apply_lora_to_student()
 
         # 优化器和调度器
@@ -477,15 +498,14 @@ class QwenMultiModelDistillationTrainer:
         self.best_acc = 0.0
 
     def _setup_device(self) -> torch.device:
-        if torch.cuda.is_available():
-            device_id = self.config.gpu_devices[0]
-            device = torch.device(f"cuda:{device_id}")
-            print(f"✓ 使用GPU设备: cuda:{device_id}")
-        else:
-            device = torch.device("cpu")
-            print("⚠️  使用CPU训练")
+#         if torch.cuda.is_available():
+#             device_id = self.config.gpu_devices[0]
+#             device = torch.device(f"cuda:{device_id}")
+#             print(f"✓ 使用GPU设备: cuda:{device_id}")
+#         else:
+        device = torch.device("cpu")
+        print("⚠️  使用CPU训练")
         return device
-
     def _get_student_feature_dim(self) -> int:
         model_type = self.config.student_model_type
         size = self.config.student_model_size
@@ -507,7 +527,7 @@ class QwenMultiModelDistillationTrainer:
         if self.config.student_model_type == 'vit':
             task_type = TaskType.IMAGE_CLASSIFICATION
         else:
-            task_type = TaskType.IMAGE_CLASSIFICATION
+            task_type = TaskType.SEQ_CLS
 
         lora_config = LoraConfig(
             task_type=task_type,
@@ -559,23 +579,65 @@ class QwenMultiModelDistillationTrainer:
                                      end_factor=0.1, total_iters=num_training_steps)
         else:
             self.scheduler = None
+    def extract_teacher_features(self, images: torch.Tensor):
+        """
+        提取教师模型的视觉特征
+        """
+        batch_size = images.size(0)
 
-    def extract_teacher_features(self, images: torch.Tensor) -> Dict[str, torch.Tensor]:
-        """从Qwen2.5-VL提取视觉特征"""
+        # 如果没有教师模型，返回随机特征
         if self.teacher_model is None:
-            # 模拟模式
-            batch_size = images.size(0)
             return {
-                'vision_features': torch.randn(batch_size, 256, 1280).to(self.device),
-                'hidden_states': [torch.randn(batch_size, 256, 1280).to(self.device)]
+                'vision_features': torch.randn(batch_size, 256, 1024).to(self.device)
             }
 
+        # 转 PIL 图像
+        pil_images = [transforms.ToPILImage()(img.cpu()) for img in images]
+
+        # 获取 processor 输出
+        inputs = self.teacher_processor(
+            images=pil_images,
+            text=["image"] * batch_size,
+            return_tensors="pt",
+        )
+
+        # 单独处理 tensor 类型和 device
+        for k, v in inputs.items():
+            if k == "input_ids":  # embedding 输入必须是 LongTensor
+                inputs[k] = v.long().to(self.device)
+            else:
+                inputs[k] = v.to(self.device)
+
+        # 提取特征
         with torch.no_grad():
-            outputs = self.teacher_model.visual(images, output_hidden_states=True)
-            return {
-                'vision_features': outputs.last_hidden_state,
-                'hidden_states': outputs.hidden_states
-            }
+            outputs = self.teacher_model(**inputs, output_hidden_states=True)
+
+        # 根据模型输出获取视觉特征
+        if hasattr(outputs, "vision_hidden_states"):
+            vision_features = outputs.vision_hidden_states[-1]
+        else:
+            vision_features = outputs.last_hidden_state  # 根据实际模型调整
+
+        return {
+            'vision_features': vision_features
+        }
+
+#     '''def extract_teacher_features(self, images: torch.Tensor) -> Dict[str, torch.Tensor]:
+#         """从Qwen2.5-VL提取视觉特征"""
+#         if self.teacher_model is None:
+#             # 模拟模式
+#             batch_size = images.size(0)
+#             return {
+#                 'vision_features': torch.randn(batch_size, 256, 1280).to(self.device),
+#                 'hidden_states': [torch.randn(batch_size, 256, 1280).to(self.device)]
+#             }
+#
+#         with torch.no_grad():
+#             outputs = self.teacher_model.visual(images, output_hidden_states=True)
+#             return {
+#                 'vision_features': outputs.last_hidden_state,
+#                 'hidden_states': outputs.hidden_states
+#             }''''
 
     def compute_distillation_loss(
         self,
@@ -645,12 +707,20 @@ class QwenMultiModelDistillationTrainer:
         losses['total_loss'] = total_loss
         return losses
 
-    def _extract_student_features(self, student_output) -> torch.Tensor:
-        if isinstance(student_output, dict):
-            if 'hidden_states' in student_output:
-                return student_output['hidden_states'][-1]
-            elif 'last_hidden_state' in student_output:
-                return student_output['last_hidden_state']
+    def _extract_student_features(self, student_output):
+
+        if self.student_feature_map is not None:
+            feat = self.student_feature_map  # [B, C, H, W]
+            feat = feat.flatten(2).transpose(1, 2)
+            return feat  # [B, HW, C]
+
+        raise RuntimeError("❌ 未捕获学生模型 backbone 特征，请检查 hook")
+#     '''def _extract_student_features(self, student_output) -> torch.Tensor:
+#         if isinstance(student_output, dict):
+#             if 'hidden_states' in student_output:
+#                 return student_output['hidden_states'][-1]
+#             elif 'last_hidden_state' in student_output:
+#                 return student_output['last_hidden_state']''''
 
         if len(student_output.shape) == 3:
             return student_output
@@ -745,7 +815,7 @@ class QwenMultiModelDistillationTrainer:
         print(f"\n{'='*60}")
         print("🚀 开始训练 - Qwen2.5-VL多模型协同训练")
         print(f"{'='*60}")
-        print(f"教师模型: Qwen2.5-VL 8B")
+        print(f"教师模型: Qwen2.5-VL 3B")
         print(f"学生模型: {self.config.student_model_type}-{self.config.student_model_size}")
         print(f"任务类型: {self.config.task_type}")
         print(f"蒸馏策略: {self.config.distillation_type}")
@@ -862,7 +932,7 @@ def parse_args():
 
     # 训练参数
     parser.add_argument('--epochs', type=int, default=100)
-    parser.add_argument('--batch_size', type=int, default=32)
+    parser.add_argument('--batch_size', type=int, default=1)
     parser.add_argument('--learning_rate', type=float, default=1e-4)
 
     # 优化器配置
@@ -877,6 +947,9 @@ def parse_args():
     # GPU配置
     parser.add_argument('--gpu_devices', type=str, default='0')
     parser.add_argument('--auto_save_checkpoint', type=bool, default=True)
+    #parser.add_argument('--auto_save_checkpoint', action='store_true')
+    #parser.add_argument('--no_auto_save_checkpoint', action='store_false',
+                        #dest='auto_save_checkpoint')
     parser.add_argument('--checkpoint_interval', type=int, default=10)
 
     # LoRA配置
@@ -898,6 +971,9 @@ def parse_args():
     parser.add_argument('--feature_loss_type', type=str, default='mse',
                        choices=['mse', 'cosine'])
     parser.add_argument('--align_feature', type=bool, default=True)
+#     parser.add_argument('--align_feature', action='store_true')
+#     parser.add_argument('--no_align_feature', action='store_false', dest='align_feature')
+    parser.set_defaults(align_feature=True)
 
     # 输出配置
     parser.add_argument('--output_dir', type=str, required=True)
@@ -938,14 +1014,14 @@ def main():
         train_dataset,
         batch_size=config.batch_size,
         shuffle=True,
-        num_workers=4,
+        num_workers=0,
         pin_memory=True
     )
     val_loader = DataLoader(
         val_dataset,
         batch_size=config.batch_size,
         shuffle=False,
-        num_workers=4,
+        num_workers=0,
         pin_memory=True
     )
 
