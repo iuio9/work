@@ -94,6 +94,7 @@ class TrainingConfig:
         # 数据配置
         self.dataset_id = args.dataset_id
         self.val_dataset_id = args.val_dataset_id
+        self.datasets_root = args.datasets_root
         self.image_size = args.image_size
 
         # 训练参数
@@ -148,21 +149,44 @@ class TrainingConfig:
 # ==================== 数据集类 ====================
 
 class MultiTaskDataset(Dataset):
-    """多任务数据集，支持分类、检测、分割"""
+    """
+    多任务数据集，支持分类、检测、分割
+
+    期望的目录结构（分类任务）：
+    dataset_path/
+      ├── class1/
+      │   ├── img1.jpg
+      │   └── img2.jpg
+      ├── class2/
+      │   └── ...
+    """
 
     def __init__(
         self,
-        dataset_id: str,
-        task_type: str,
+        dataset_path: str,
+        task_type: str = 'classification',
         image_size: int = 224,
         num_classes: int = 10,
         mode: str = 'train'
     ):
-        self.dataset_id = dataset_id
+        self.dataset_path = dataset_path
         self.task_type = task_type
         self.image_size = image_size
         self.num_classes = num_classes
         self.mode = mode
+
+        # 存储所有图像路径和标签
+        self.image_paths = []
+        self.labels = []
+        self.class_names = []
+
+        # 检查数据集路径是否存在
+        if os.path.exists(dataset_path):
+            self._load_dataset()
+        else:
+            print(f"⚠️ 警告: 数据集路径不存在: {dataset_path}")
+            print(f"使用模拟数据进行演示")
+            self._use_mock_data(1000 if mode == 'train' else 200)
 
         # 数据增强
         if mode == 'train':
@@ -183,27 +207,85 @@ class MultiTaskDataset(Dataset):
                                    std=[0.229, 0.224, 0.225])
             ])
 
-        # TODO: 从数据库加载数据
-        self.num_samples = 1000 if mode == 'train' else 200
+    def _load_dataset(self):
+        """从目录结构加载真实数据集（分类任务）"""
+        print(f"📂 加载数据集: {self.dataset_path}")
+
+        # 获取所有类别文件夹
+        class_folders = sorted([d for d in os.listdir(self.dataset_path)
+                               if os.path.isdir(os.path.join(self.dataset_path, d))])
+
+        if not class_folders:
+            print(f"⚠️ 警告: 在 {self.dataset_path} 中未找到类别文件夹")
+            self._use_mock_data(1000 if self.mode == 'train' else 200)
+            return
+
+        self.class_names = class_folders
+        print(f"✅ 找到 {len(self.class_names)} 个类别: {self.class_names}")
+
+        # 遍历每个类别文件夹
+        for class_idx, class_name in enumerate(self.class_names):
+            class_dir = os.path.join(self.dataset_path, class_name)
+
+            # 获取该类别下的所有图像文件
+            image_files = [f for f in os.listdir(class_dir)
+                          if f.lower().endswith(('.jpg', '.jpeg', '.png', '.bmp'))]
+
+            for img_file in image_files:
+                img_path = os.path.join(class_dir, img_file)
+                self.image_paths.append(img_path)
+                self.labels.append(class_idx)
+
+        print(f"✅ 加载完成: 共 {len(self.image_paths)} 张图像")
+
+        # 更新类别数
+        if self.num_classes is None or self.num_classes != len(self.class_names):
+            self.num_classes = len(self.class_names)
+
+    def _use_mock_data(self, num_samples):
+        """使用模拟数据（当真实数据不可用时）"""
+        print(f"🎭 使用模拟数据: {num_samples} 个样本")
+        self.class_names = [f"class_{i}" for i in range(self.num_classes)]
+
+        # 生成模拟路径和标签
+        for i in range(num_samples):
+            self.image_paths.append(f"mock_image_{i}.jpg")
+            self.labels.append(i % len(self.class_names))
 
     def __len__(self):
-        return self.num_samples
+        return len(self.image_paths)
 
     def __getitem__(self, idx):
-        # TODO: 从数据库加载真实图像和标注
-        image_array = np.random.randint(0, 255, (self.image_size, self.image_size, 3), dtype=np.uint8)
-        image = Image.fromarray(image_array)
+        img_path = self.image_paths[idx]
+        label = self.labels[idx]
+
+        # 尝试加载真实图像
+        try:
+            if os.path.exists(img_path):
+                image = Image.open(img_path).convert('RGB')
+            else:
+                # 生成随机图像（模拟数据）
+                image_array = np.random.randint(0, 255, (self.image_size, self.image_size, 3), dtype=np.uint8)
+                image = Image.fromarray(image_array)
+        except Exception as e:
+            print(f"⚠️ 加载图像失败 {img_path}: {e}")
+            # 生成随机图像作为后备
+            image_array = np.random.randint(0, 255, (self.image_size, self.image_size, 3), dtype=np.uint8)
+            image = Image.fromarray(image_array)
+
+        # 应用变换
         pixel_values = self.transform(image)
 
         if self.task_type == 'classification':
-            label = torch.randint(0, self.num_classes, (1,)).item()
             return {'pixel_values': pixel_values, 'labels': label}
         elif self.task_type == 'detection':
+            # 检测任务的模拟数据
             num_boxes = np.random.randint(1, 5)
             boxes = torch.rand(num_boxes, 4)
-            labels = torch.randint(0, self.num_classes, (num_boxes,))
-            return {'pixel_values': pixel_values, 'boxes': boxes, 'labels': labels}
+            box_labels = torch.randint(0, self.num_classes, (num_boxes,))
+            return {'pixel_values': pixel_values, 'boxes': boxes, 'labels': box_labels}
         elif self.task_type == 'segmentation':
+            # 分割任务的模拟数据
             mask = torch.randint(0, self.num_classes, (self.image_size, self.image_size))
             return {'pixel_values': pixel_values, 'mask': mask}
 
@@ -978,6 +1060,9 @@ def parse_args():
     # 输出配置
     parser.add_argument('--output_dir', type=str, required=True)
 
+    # 数据集根目录（新增）
+    parser.add_argument('--datasets_root', type=str, default='/data/datasets', help='数据集根目录')
+
     return parser.parse_args()
 
 
@@ -995,15 +1080,25 @@ def main():
     config = TrainingConfig(args)
 
     print("\n正在加载数据集...")
+
+    # 构建训练集路径
+    train_dataset_path = os.path.join(config.datasets_root, config.dataset_id, "train")
+    print(f"训练集路径: {train_dataset_path}")
+
+    # 构建验证集路径
+    val_dataset_id = config.val_dataset_id or config.dataset_id
+    val_dataset_path = os.path.join(config.datasets_root, val_dataset_id, "val")
+    print(f"验证集路径: {val_dataset_path}")
+
     train_dataset = MultiTaskDataset(
-        config.dataset_id,
+        train_dataset_path,
         config.task_type,
         config.image_size,
         config.num_classes,
         mode='train'
     )
     val_dataset = MultiTaskDataset(
-        config.val_dataset_id or config.dataset_id,
+        val_dataset_path,
         config.task_type,
         config.image_size,
         config.num_classes,
