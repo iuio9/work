@@ -1060,8 +1060,8 @@ def parse_args():
     # 输出配置
     parser.add_argument('--output_dir', type=str, required=True)
 
-    # 数据集根目录（新增）
-    parser.add_argument('--datasets_root', type=str, default='/data/datasets', help='数据集根目录')
+    # 数据集根目录（新增，由后端配置文件传递）
+    parser.add_argument('--datasets_root', type=str, required=True, help='数据集根目录')
 
     return parser.parse_args()
 
