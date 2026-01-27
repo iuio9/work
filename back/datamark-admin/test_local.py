@@ -334,9 +334,20 @@ class DistillationTrainer:
                 inputs[k] = v.to(self.config.device)
 
         with torch.no_grad():
-            outputs = self.teacher_model.visual(**inputs, output_hidden_states=True)
+            # 使用完整模型前向传播，提取隐藏层状态
+            outputs = self.teacher_model(**inputs, output_hidden_states=True)
+
+            # 从隐藏层提取视觉特征
+            # Qwen2.5-VL的hidden_states包含所有层的输出，我们取最后一层
+            if hasattr(outputs, 'hidden_states') and outputs.hidden_states:
+                # 使用最后一层的隐藏状态作为视觉特征
+                vision_features = outputs.hidden_states[-1]
+            else:
+                # 如果没有hidden_states，使用最后的隐藏状态
+                vision_features = outputs.last_hidden_state if hasattr(outputs, 'last_hidden_state') else outputs[0]
+
             return {
-                'vision_features': outputs.last_hidden_state
+                'vision_features': vision_features
             }
 
     def compute_distillation_loss(
