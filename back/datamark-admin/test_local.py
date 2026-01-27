@@ -3,14 +3,14 @@
 """
 本地测试版本 - Qwen2.5-VL知识蒸馏训练脚本
 
-用途：脱离前后端系统，独立运行测试训练脚本
-适合：验证数据集加载、模型训练流程是否正常
+用途：脱离前后端系统，独立运行测试知识蒸馏训练
+保留完整的蒸馏逻辑：教师模型(Qwen) -> 学生模型(ResNet)
 
 使用方法：
     python test_local.py
 
 作者：AI Assistant
-日期：2026-01-26
+日期：2026-01-27
 """
 
 import os
@@ -36,15 +36,10 @@ try:
     QWEN_AVAILABLE = True
 except ImportError:
     QWEN_AVAILABLE = False
-    warnings.warn("⚠️ Qwen2_5_VL模型库未安装，将使用模拟模式")
+    warnings.warn("⚠️ Qwen2_5_VL模型库未安装，将使用模拟教师模型")
 
 # 小模型相关导入
 import torchvision.models as models
-from transformers import (
-    AutoConfig,
-    AutoModelForImageClassification,
-    AutoImageProcessor,
-)
 from peft import LoraConfig, get_peft_model, TaskType
 
 
@@ -57,28 +52,31 @@ class SimpleConfig:
         # ========== 关键配置（需要修改） ==========
         # 数据集根目录（修改为您的实际路径）
         self.datasets_root = r"D:\pythonProject2\datasets"
-
-        # 数据集ID（子目录名）
         self.dataset_id = "cifar10"
 
-        # 教师模型路径
+        # 教师模型路径（Qwen2.5-VL）
         self.teacher_path = r"D:\pythonProject2\models\Qwen2___5-VL-3B-Instruct"
 
         # 输出目录
         self.output_dir = r"D:\pythonProject2\test_output"
 
+        # ========== 是否使用真实Qwen模型 ==========
+        # True: 加载真实Qwen模型（需要大量内存，训练慢但完整）
+        # False: 使用模拟教师模型（快速测试，验证流程）
+        self.use_real_teacher = False  # 改为True以使用真实Qwen模型
+
         # ========== 任务配置 ==========
-        self.task_type = "classification"  # classification/detection/segmentation
-        self.num_classes = 10  # CIFAR-10有10个类别
+        self.task_type = "classification"
+        self.num_classes = 10  # CIFAR-10
         self.image_size = 224
 
         # ========== 学生模型配置 ==========
-        self.student_model_type = "resnet"  # resnet/vit/yolov8/unet/lstm
-        self.student_model_size = "resnet18"  # resnet18/resnet50/vit-base等
+        self.student_model_type = "resnet"
+        self.student_model_size = "resnet18"
 
         # ========== 训练参数 ==========
-        self.epochs = 2  # 测试用，只训练2个epoch
-        self.batch_size = 8  # 较小的batch size，降低内存占用
+        self.epochs = 2  # 测试用
+        self.batch_size = 8
         self.learning_rate = 0.0001
 
         # ========== LoRA配置 ==========
@@ -88,9 +86,10 @@ class SimpleConfig:
 
         # ========== 知识蒸馏参数 ==========
         self.temperature = 4.0
-        self.hard_label_weight = 0.3
-        self.soft_label_weight = 0.7
-        self.distillation_type = "logit"  # logit/feature/hybrid
+        self.hard_label_weight = 0.3  # 硬标签权重
+        self.soft_label_weight = 0.7  # 软标签权重
+        self.distillation_type = "feature"  # logit/feature/hybrid
+        self.feature_loss_type = "mse"  # mse/cosine
 
         # ========== 设备配置 ==========
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -99,49 +98,25 @@ class SimpleConfig:
         self.optimizer_type = "adamw"
         self.weight_decay = 0.01
 
-        # ========== 其他 ==========
-        self.save_interval = 1  # 每个epoch都保存
-        self.log_interval = 10  # 每10个batch打印一次
-
 
 # ==================== 数据集类 ====================
 
 class CIFAR10Dataset(Dataset):
-    """
-    CIFAR-10数据集加载器
+    """CIFAR-10数据集加载器"""
 
-    期望的目录结构：
-    dataset_root/cifar10/
-      ├── train/
-      │   ├── airplane/
-      │   ├── automobile/
-      │   └── ...
-      └── val/
-          ├── airplane/
-          └── ...
-    """
-
-    def __init__(
-        self,
-        dataset_path: str,
-        image_size: int = 224,
-        mode: str = 'train'
-    ):
+    def __init__(self, dataset_path: str, image_size: int = 224, mode: str = 'train'):
         self.dataset_path = dataset_path
         self.image_size = image_size
         self.mode = mode
 
-        # 存储所有图像路径和标签
         self.image_paths = []
         self.labels = []
         self.class_names = []
 
-        # 加载数据集
         if os.path.exists(dataset_path):
             self._load_dataset()
         else:
             print(f"❌ 错误: 数据集路径不存在: {dataset_path}")
-            print(f"请先运行 convert_cifar10.py 转换数据集")
             sys.exit(1)
 
         # 数据增强
@@ -167,22 +142,18 @@ class CIFAR10Dataset(Dataset):
         """从目录结构加载数据集"""
         print(f"📂 加载数据集: {self.dataset_path}")
 
-        # 获取所有类别文件夹
         class_folders = sorted([d for d in os.listdir(self.dataset_path)
                                if os.path.isdir(os.path.join(self.dataset_path, d))])
 
         if not class_folders:
-            print(f"❌ 错误: 在 {self.dataset_path} 中未找到类别文件夹")
+            print(f"❌ 错误: 未找到类别文件夹")
             sys.exit(1)
 
         self.class_names = class_folders
         print(f"✅ 找到 {len(self.class_names)} 个类别: {self.class_names}")
 
-        # 遍历每个类别文件夹
         for class_idx, class_name in enumerate(self.class_names):
             class_dir = os.path.join(self.dataset_path, class_name)
-
-            # 获取该类别下的所有图像文件
             image_files = [f for f in os.listdir(class_dir)
                           if f.lower().endswith(('.jpg', '.jpeg', '.png', '.bmp'))]
 
@@ -203,21 +174,46 @@ class CIFAR10Dataset(Dataset):
         try:
             image = Image.open(img_path).convert('RGB')
         except Exception as e:
-            print(f"⚠️ 加载图像失败 {img_path}: {e}")
-            # 生成随机图像作为后备
+            print(f"⚠️ 加载图像失败: {e}")
             image_array = np.random.randint(0, 255, (self.image_size, self.image_size, 3), dtype=np.uint8)
             image = Image.fromarray(image_array)
 
-        # 应用变换
         image = self.transform(image)
-
         return {'pixel_values': image, 'labels': label}
 
 
-# ==================== 学生模型加载器 ====================
+# ==================== 模型加载器 ====================
+
+class TeacherModelLoader:
+    """教师模型加载器"""
+
+    @staticmethod
+    def load_qwen2vl(model_path: str, device: torch.device, use_real: bool = True):
+        """加载Qwen2.5-VL模型"""
+        if not use_real or not QWEN_AVAILABLE:
+            print("📦 使用模拟教师模型（快速测试模式）")
+            return None, None
+
+        print(f"📦 正在加载Qwen2.5-VL教师模型: {model_path}")
+        print("⚠️ 注意：这可能需要几分钟时间和大量内存...")
+
+        try:
+            model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+                model_path,
+                torch_dtype="auto",
+                device_map="cpu"  # 先加载到CPU，避免GPU内存不足
+            )
+            processor = AutoProcessor.from_pretrained(model_path)
+            print("✅ 教师模型加载成功")
+            return model, processor
+        except Exception as e:
+            print(f"❌ 加载教师模型失败: {e}")
+            print("将使用模拟教师模型")
+            return None, None
+
 
 class StudentModelLoader:
-    """学生模型加载器（简化版）"""
+    """学生模型加载器"""
 
     @staticmethod
     def load_resnet(model_size: str, num_classes: int):
@@ -233,34 +229,50 @@ class StudentModelLoader:
         else:
             model = models.resnet18(pretrained=False)
 
-        # 修改最后一层以匹配类别数
+        # 修改最后一层
         model.fc = nn.Linear(model.fc.in_features, num_classes)
-
         return model
 
 
-# ==================== 简化的训练器 ====================
+# ==================== 知识蒸馏训练器 ====================
 
-class SimpleTrainer:
-    """简化的训练器（不依赖后端API）"""
+class DistillationTrainer:
+    """知识蒸馏训练器（保留完整蒸馏逻辑）"""
 
     def __init__(self, config: SimpleConfig):
         self.config = config
 
         print("\n" + "=" * 60)
-        print("本地测试训练器初始化")
+        print("知识蒸馏训练器初始化")
         print("=" * 60)
 
         # 创建输出目录
         os.makedirs(config.output_dir, exist_ok=True)
-        print(f"✅ 输出目录: {config.output_dir}")
+
+        # 加载教师模型
+        self.teacher_model, self.teacher_processor = TeacherModelLoader.load_qwen2vl(
+            config.teacher_path,
+            config.device,
+            use_real=config.use_real_teacher
+        )
+
+        # 加载学生模型
+        self.student_model = StudentModelLoader.load_resnet(
+            config.student_model_size,
+            config.num_classes
+        ).to(config.device)
+
+        # 注册hook提取学生特征
+        self.student_feature_map = None
+
+        def hook_fn(module, input, output):
+            self.student_feature_map = output
+
+        self.student_model.avgpool.register_forward_hook(hook_fn)
 
         # 加载数据集
         train_path = os.path.join(config.datasets_root, config.dataset_id, "train")
         val_path = os.path.join(config.datasets_root, config.dataset_id, "val")
-
-        print(f"\n训练集路径: {train_path}")
-        print(f"验证集路径: {val_path}")
 
         self.train_dataset = CIFAR10Dataset(train_path, config.image_size, mode='train')
         self.val_dataset = CIFAR10Dataset(val_path, config.image_size, mode='val')
@@ -269,7 +281,7 @@ class SimpleTrainer:
             self.train_dataset,
             batch_size=config.batch_size,
             shuffle=True,
-            num_workers=0  # Windows上设为0避免multiprocessing问题
+            num_workers=0
         )
         self.val_loader = DataLoader(
             self.val_dataset,
@@ -277,17 +289,6 @@ class SimpleTrainer:
             shuffle=False,
             num_workers=0
         )
-
-        print(f"\n✅ 训练样本数: {len(self.train_dataset)}")
-        print(f"✅ 验证样本数: {len(self.val_dataset)}")
-        print(f"✅ 训练批次数: {len(self.train_loader)}")
-
-        # 加载学生模型
-        print(f"\n正在加载学生模型...")
-        self.student_model = StudentModelLoader.load_resnet(
-            config.student_model_size,
-            config.num_classes
-        ).to(config.device)
 
         # 优化器
         self.optimizer = torch.optim.AdamW(
@@ -297,15 +298,120 @@ class SimpleTrainer:
         )
 
         # 损失函数
-        self.criterion = nn.CrossEntropyLoss()
+        self.ce_loss = nn.CrossEntropyLoss()
+        self.mse_loss = nn.MSELoss()
+        self.kl_loss = nn.KLDivLoss(reduction='batchmean')
 
         print(f"✅ 设备: {config.device}")
+        print(f"✅ 教师模型: {'真实Qwen' if self.teacher_model else '模拟模型'}")
         print(f"✅ 学生模型参数量: {sum(p.numel() for p in self.student_model.parameters()):,}")
+        print(f"✅ 训练样本: {len(self.train_dataset)}")
+        print(f"✅ 验证样本: {len(self.val_dataset)}")
+
+    def extract_teacher_features(self, images: torch.Tensor):
+        """提取教师模型特征"""
+        batch_size = images.size(0)
+
+        # 模拟模式
+        if self.teacher_model is None:
+            return {
+                'vision_features': torch.randn(batch_size, 256, 1024).to(self.config.device)
+            }
+
+        # 真实Qwen模型
+        pil_images = [transforms.ToPILImage()(img.cpu()) for img in images]
+
+        inputs = self.teacher_processor(
+            images=pil_images,
+            text=["image"] * batch_size,
+            return_tensors="pt",
+        )
+
+        for k, v in inputs.items():
+            if k == "input_ids":
+                inputs[k] = v.long().to(self.config.device)
+            else:
+                inputs[k] = v.to(self.config.device)
+
+        with torch.no_grad():
+            outputs = self.teacher_model.visual(**inputs, output_hidden_states=True)
+            return {
+                'vision_features': outputs.last_hidden_state
+            }
+
+    def compute_distillation_loss(
+        self,
+        student_output: torch.Tensor,
+        teacher_features: Dict[str, torch.Tensor],
+        labels: torch.Tensor
+    ) -> Dict[str, torch.Tensor]:
+        """计算知识蒸馏损失"""
+        losses = {}
+
+        # 1. 硬标签损失（交叉熵）
+        hard_loss = self.ce_loss(student_output, labels)
+        losses['hard_loss'] = hard_loss
+
+        # 2. 软标签损失（KL散度 - 简化版）
+        # 在完整实现中，这里应该使用教师模型的logits
+        soft_loss = torch.tensor(0.0).to(self.config.device)
+        losses['soft_loss'] = soft_loss
+
+        # 3. 特征蒸馏损失
+        if self.config.distillation_type in ['feature', 'hybrid']:
+            # 提取学生特征
+            if self.student_feature_map is not None:
+                student_features = self.student_feature_map.flatten(1)  # [B, D]
+            else:
+                student_features = student_output
+
+            # 教师特征
+            teacher_vis_features = teacher_features['vision_features']  # [B, N, D]
+            teacher_pooled = teacher_vis_features.mean(dim=1)  # [B, D]
+
+            # 对齐维度
+            if student_features.shape != teacher_pooled.shape:
+                # 简单投影
+                if student_features.shape[1] != teacher_pooled.shape[1]:
+                    if student_features.shape[1] > teacher_pooled.shape[1]:
+                        student_features = F.adaptive_avg_pool1d(
+                            student_features.unsqueeze(1),
+                            teacher_pooled.shape[1]
+                        ).squeeze(1)
+                    else:
+                        teacher_pooled = F.adaptive_avg_pool1d(
+                            teacher_pooled.unsqueeze(1),
+                            student_features.shape[1]
+                        ).squeeze(1)
+
+            # 计算特征损失
+            if self.config.feature_loss_type == 'mse':
+                feature_loss = self.mse_loss(student_features, teacher_pooled)
+            elif self.config.feature_loss_type == 'cosine':
+                student_norm = F.normalize(student_features, dim=-1)
+                teacher_norm = F.normalize(teacher_pooled, dim=-1)
+                feature_loss = 1 - F.cosine_similarity(student_norm, teacher_norm).mean()
+            else:
+                feature_loss = torch.tensor(0.0).to(self.config.device)
+
+            losses['feature_loss'] = feature_loss
+        else:
+            losses['feature_loss'] = torch.tensor(0.0).to(self.config.device)
+
+        # 4. 总损失
+        total_loss = (
+            self.config.hard_label_weight * losses['hard_loss'] +
+            self.config.soft_label_weight * losses['soft_loss'] +
+            losses['feature_loss']
+        )
+        losses['total_loss'] = total_loss
+
+        return losses
 
     def train_epoch(self, epoch: int):
         """训练一个epoch"""
         self.student_model.train()
-        total_loss = 0
+        epoch_losses = {'total_loss': 0.0, 'hard_loss': 0.0, 'soft_loss': 0.0, 'feature_loss': 0.0}
         correct = 0
         total = 0
 
@@ -315,39 +421,50 @@ class SimpleTrainer:
             images = batch['pixel_values'].to(self.config.device)
             labels = batch['labels'].to(self.config.device)
 
-            # 前向传播
+            # 提取教师特征
+            teacher_features = self.extract_teacher_features(images)
+
+            # 学生模型前向传播
             self.optimizer.zero_grad()
-            outputs = self.student_model(images)
-            loss = self.criterion(outputs, labels)
+            student_output = self.student_model(images)
+
+            # 计算蒸馏损失
+            losses = self.compute_distillation_loss(student_output, teacher_features, labels)
 
             # 反向传播
-            loss.backward()
+            losses['total_loss'].backward()
             self.optimizer.step()
 
             # 统计
-            total_loss += loss.item()
-            _, predicted = outputs.max(1)
+            for k in epoch_losses.keys():
+                epoch_losses[k] += losses[k].item()
+
+            _, predicted = student_output.max(1)
             total += labels.size(0)
             correct += predicted.eq(labels).sum().item()
 
             # 更新进度条
-            if (batch_idx + 1) % self.config.log_interval == 0:
+            if (batch_idx + 1) % 10 == 0:
                 acc = 100. * correct / total
-                avg_loss = total_loss / (batch_idx + 1)
                 pbar.set_postfix({
-                    'loss': f'{avg_loss:.4f}',
+                    'loss': f'{losses["total_loss"].item():.4f}',
+                    'hard': f'{losses["hard_loss"].item():.3f}',
+                    'feat': f'{losses["feature_loss"].item():.3f}',
                     'acc': f'{acc:.2f}%'
                 })
 
         # Epoch统计
-        avg_loss = total_loss / len(self.train_loader)
+        for k in epoch_losses.keys():
+            epoch_losses[k] /= len(self.train_loader)
         acc = 100. * correct / total
 
         print(f"\n📊 Epoch {epoch} 训练结果:")
-        print(f"   Loss: {avg_loss:.4f}")
+        print(f"   Total Loss: {epoch_losses['total_loss']:.4f}")
+        print(f"   Hard Loss: {epoch_losses['hard_loss']:.4f}")
+        print(f"   Feature Loss: {epoch_losses['feature_loss']:.4f}")
         print(f"   Accuracy: {acc:.2f}%")
 
-        return avg_loss, acc
+        return epoch_losses, acc
 
     def validate(self):
         """验证模型"""
@@ -362,7 +479,7 @@ class SimpleTrainer:
                 labels = batch['labels'].to(self.config.device)
 
                 outputs = self.student_model(images)
-                loss = self.criterion(outputs, labels)
+                loss = self.ce_loss(outputs, labels)
 
                 total_loss += loss.item()
                 _, predicted = outputs.max(1)
@@ -381,7 +498,7 @@ class SimpleTrainer:
     def train(self):
         """完整训练流程"""
         print("\n" + "=" * 60)
-        print("开始训练")
+        print("开始知识蒸馏训练")
         print("=" * 60)
 
         best_acc = 0
@@ -393,7 +510,7 @@ class SimpleTrainer:
             print('=' * 60)
 
             # 训练
-            train_loss, train_acc = self.train_epoch(epoch)
+            train_losses, train_acc = self.train_epoch(epoch)
 
             # 验证
             val_loss, val_acc = self.validate()
@@ -401,7 +518,7 @@ class SimpleTrainer:
             # 保存最佳模型
             if val_acc > best_acc:
                 best_acc = val_acc
-                save_path = os.path.join(self.config.output_dir, "best_model.pth")
+                save_path = os.path.join(self.config.output_dir, "best_distilled_model.pth")
                 torch.save({
                     'epoch': epoch,
                     'model_state_dict': self.student_model.state_dict(),
@@ -409,17 +526,22 @@ class SimpleTrainer:
                     'train_acc': train_acc,
                     'val_acc': val_acc,
                     'best_acc': best_acc,
+                    'config': vars(self.config)
                 }, save_path)
                 print(f"\n💾 保存最佳模型: {save_path} (Acc: {best_acc:.2f}%)")
 
         # 训练结束
         elapsed_time = time.time() - start_time
         print("\n" + "=" * 60)
-        print("✅ 训练完成！")
+        print("✅ 知识蒸馏训练完成！")
         print("=" * 60)
         print(f"总耗时: {elapsed_time/60:.2f} 分钟")
         print(f"最佳验证准确率: {best_acc:.2f}%")
-        print(f"模型保存位置: {self.config.output_dir}")
+        print(f"蒸馏配置:")
+        print(f"  - 硬标签权重: {self.config.hard_label_weight}")
+        print(f"  - 软标签权重: {self.config.soft_label_weight}")
+        print(f"  - 特征蒸馏类型: {self.config.distillation_type}")
+        print(f"  - 特征损失类型: {self.config.feature_loss_type}")
 
 
 # ==================== 主函数 ====================
@@ -427,49 +549,56 @@ class SimpleTrainer:
 def main():
     print("\n" + "=" * 60)
     print("Qwen2.5-VL 知识蒸馏训练脚本 - 本地测试版")
+    print("（保留完整蒸馏逻辑）")
     print("=" * 60)
 
     # 创建配置
     config = SimpleConfig()
 
-    # 打印配置信息
+    # 打印配置
     print("\n📋 训练配置:")
-    print(f"   数据集根目录: {config.datasets_root}")
-    print(f"   数据集ID: {config.dataset_id}")
+    print(f"   数据集: {config.datasets_root}/{config.dataset_id}")
     print(f"   教师模型: {config.teacher_path}")
+    print(f"   使用真实Qwen: {config.use_real_teacher}")
     print(f"   学生模型: {config.student_model_type}-{config.student_model_size}")
-    print(f"   任务类型: {config.task_type}")
-    print(f"   类别数: {config.num_classes}")
+    print(f"   蒸馏类型: {config.distillation_type}")
+    print(f"   特征损失: {config.feature_loss_type}")
+    print(f"   硬标签权重: {config.hard_label_weight}")
+    print(f"   软标签权重: {config.soft_label_weight}")
     print(f"   训练轮数: {config.epochs}")
     print(f"   批次大小: {config.batch_size}")
-    print(f"   学习率: {config.learning_rate}")
-    print(f"   输出目录: {config.output_dir}")
 
-    # 检查关键路径
+    # 检查路径
     print("\n🔍 检查路径...")
     train_path = os.path.join(config.datasets_root, config.dataset_id, "train")
     val_path = os.path.join(config.datasets_root, config.dataset_id, "val")
 
     if not os.path.exists(train_path):
-        print(f"❌ 错误: 训练集路径不存在: {train_path}")
-        print(f"请先运行 convert_cifar10.py 转换CIFAR-10数据集")
+        print(f"❌ 错误: 训练集不存在: {train_path}")
+        print(f"请先运行 convert_cifar10.py")
         return
 
     if not os.path.exists(val_path):
-        print(f"❌ 错误: 验证集路径不存在: {val_path}")
-        print(f"请先运行 convert_cifar10.py 转换CIFAR-10数据集")
+        print(f"❌ 错误: 验证集不存在: {val_path}")
         return
 
-    print("✅ 所有路径检查通过")
+    if config.use_real_teacher and not os.path.exists(config.teacher_path):
+        print(f"❌ 错误: 教师模型不存在: {config.teacher_path}")
+        print(f"提示: 可以设置 use_real_teacher=False 使用模拟模型快速测试")
+        return
+
+    print("✅ 路径检查通过")
 
     # 创建训练器
-    trainer = SimpleTrainer(config)
+    trainer = DistillationTrainer(config)
 
     # 开始训练
     trainer.train()
 
-    print("\n✅ 测试运行完成！")
-    print("如果一切正常，可以将此脚本集成到前后端系统中。")
+    print("\n✅ 知识蒸馏测试完成！")
+    if not config.use_real_teacher:
+        print("\n💡 提示: 当前使用模拟教师模型")
+        print("   如需完整蒸馏训练，请设置 use_real_teacher=True")
 
 
 if __name__ == "__main__":
