@@ -55,6 +55,11 @@ public class CreateTaskRequestDTO {
     // ========== 基础训练参数 ==========
 
     /**
+     * 训练模式：distillation-知识蒸馏训练，direct-单独训练
+     */
+    private String trainingMode;
+
+    /**
      * 训练轮数
      */
     private Integer epochs;

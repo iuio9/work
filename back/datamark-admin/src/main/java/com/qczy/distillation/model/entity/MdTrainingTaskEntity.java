@@ -76,6 +76,13 @@ public class MdTrainingTaskEntity {
     // ========== 训练参数 ==========
 
     /**
+     * 训练模式：distillation-知识蒸馏训练，direct-单独训练
+     */
+    @TableField("training_mode")
+    @ApiModelProperty(value = "训练模式（distillation-知识蒸馏，direct-单独训练）")
+    private String trainingMode;
+
+    /**
      * 总训练轮数
      */
     @TableField("total_epochs")

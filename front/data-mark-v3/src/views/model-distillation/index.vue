@@ -48,8 +48,32 @@
         <n-tab-pane name="model-config" tab="模型配置">
           <div class="p-4">
             <n-space vertical :size="24">
+              <!-- 训练模式选择 -->
+              <n-card title="训练模式" :bordered="false" size="small" hoverable>
+                <n-form :label-width="120">
+                  <n-form-item label="选择训练模式">
+                    <n-radio-group v-model:value="taskForm.trainingMode">
+                      <n-space>
+                        <n-radio value="distillation">
+                          <div class="flex items-center">
+                            <n-icon :component="GitMergeOutline" class="mr-2" />
+                            知识蒸馏训练（使用大模型指导小模型）
+                          </div>
+                        </n-radio>
+                        <n-radio value="direct">
+                          <div class="flex items-center">
+                            <n-icon :component="PersonOutline" class="mr-2" />
+                            单独训练（仅训练小模型）
+                          </div>
+                        </n-radio>
+                      </n-space>
+                    </n-radio-group>
+                  </n-form-item>
+                </n-form>
+              </n-card>
+
               <!-- 教师模型配置 -->
-              <n-card title="教师模型（大模型）" :bordered="false" size="small" hoverable>
+              <n-card v-if="taskForm.trainingMode === 'distillation'" title="教师模型（大模型）" :bordered="false" size="small" hoverable>
                 <n-form :label-width="120">
                   <n-grid :cols="2" :x-gap="24">
                     <n-gi>
@@ -921,7 +945,8 @@ import {
   EyeOutline,
   TrashOutline,
   DownloadOutline,
-  CloudUploadOutline
+  CloudUploadOutline,
+  GitMergeOutline
 } from '@vicons/ionicons5';
 import * as echarts from 'echarts';
 import {
@@ -1000,6 +1025,7 @@ const taskFormRef = ref<any>(null);
 const taskForm = ref({
   taskName: '',
   description: '',
+  trainingMode: 'distillation', // 训练模式：distillation=知识蒸馏, direct=单独训练
   datasetId: '',
   valDatasetId: '',
   epochs: 10,
@@ -1361,6 +1387,24 @@ const taskColumns = [
     width: 200,
     render(row: any) {
       return String(row.taskName ?? '-');
+    }
+  },
+  {
+    title: '训练模式',
+    key: 'trainingMode',
+    width: 130,
+    render(row: any) {
+      const mode = row.trainingMode ?? 'distillation';
+      return h(
+        NTag,
+        {
+          type: mode === 'distillation' ? 'info' : 'success',
+          size: 'small'
+        },
+        {
+          default: () => mode === 'distillation' ? '知识蒸馏' : '单独训练'
+        }
+      );
     }
   },
   {

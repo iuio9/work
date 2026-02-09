@@ -62,6 +62,12 @@ public class TrainingExecutionService {
     private String qwenScriptPath;
 
     /**
+     * 单独训练脚本路径（不使用教师模型）
+     */
+    @Value("${distillation.student-only-script.path:/home/user/work/back/datamark-admin/train_student_only.py}")
+    private String studentOnlyScriptPath;
+
+    /**
      * 后端API基础URL
      */
     @Value("${distillation.api.base-url:http://localhost:8080}")
@@ -216,8 +222,9 @@ public class TrainingExecutionService {
         // Python解释器
         command.add(pythonPath);
 
-        // 训练脚本（根据教师模型类型动态选择）
-        command.add(getTrainingScript(task.getTeacherModel()));
+        // 训练脚本（根据训练模式和教师模型类型动态选择）
+        String trainingMode = task.getTrainingMode() != null ? task.getTrainingMode() : "distillation";
+        command.add(getTrainingScript(task.getTeacherModel(), trainingMode));
 
         // ========== 基础配置 ==========
         command.add("--task_id");
@@ -227,16 +234,19 @@ public class TrainingExecutionService {
         command.add(apiBaseUrl);
 
         // ========== 模型配置 ==========
-        command.add("--teacher_model");
-        command.add(task.getTeacherModel());
+        // 只有知识蒸馏模式才需要教师模型
+        if ("distillation".equals(trainingMode)) {
+            command.add("--teacher_model");
+            command.add(task.getTeacherModel());
+
+            // 教师模型路径
+            String teacherPath = getModelPath(task.getTeacherModel(), config);
+            command.add("--teacher_path");
+            command.add(teacherPath);
+        }
 
         command.add("--student_model");
         command.add(task.getStudentModel());
-
-        // 教师模型路径
-        String teacherPath = getModelPath(task.getTeacherModel(), config);
-        command.add("--teacher_path");
-        command.add(teacherPath);
 
         // 学生模型路径（可选）
         String studentPath = getStudentModelPath(task.getStudentModel(), config);
@@ -441,7 +451,14 @@ public class TrainingExecutionService {
      * @param teacherModel 教师模型名称
      * @return 训练脚本路径
      */
-    private String getTrainingScript(String teacherModel) {
+    private String getTrainingScript(String teacherModel, String trainingMode) {
+        // 单独训练模式：使用student-only脚本
+        if ("direct".equals(trainingMode)) {
+            logger.info("单独训练模式，使用单独训练脚本: {}", studentOnlyScriptPath);
+            return studentOnlyScriptPath;
+        }
+
+        // 知识蒸馏模式：根据教师模型选择脚本
         if (teacherModel != null &&
             (teacherModel.toLowerCase().contains("qwen") ||
              teacherModel.toLowerCase().contains("qwen2"))) {

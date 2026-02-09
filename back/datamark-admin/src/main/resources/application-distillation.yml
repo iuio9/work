@@ -13,6 +13,10 @@ distillation:
   qwen-script:
     path: D:/pythonProject2/train_qwen_vl_distillation.py
 
+  # 单独训练脚本路径（不使用教师模型）
+  student-only-script:
+    path: D:/pythonProject2/train_student_only.py
+
   # 推理脚本路径（自动标注）
   inference-script:
     path: D:/pythonProject2/inference_qwen_vl_distilled_models.py
