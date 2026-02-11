@@ -73,7 +73,7 @@
               </n-card>
               <!-- 教师模型配置 -->
               <!--<n-card title="教师模型（大模型）" :bordered="false" size="small" hoverable>-->
-              <n-card v-if="taskForm.trainingMode === 'distillation'" title="教师模型（大模型）" :bordered="false" size="small" hoverable></n-card>
+              <n-card v-if="taskForm.trainingMode === 'distillation'" title="教师模型（大模型）" :bordered="false" size="small" hoverable>
                 <n-form :label-width="120">
                   <n-grid :cols="2" :x-gap="24">
                     <n-gi>
