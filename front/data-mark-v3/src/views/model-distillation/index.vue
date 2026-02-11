@@ -48,7 +48,7 @@
         <n-tab-pane name="model-config" tab="模型配置">
           <div class="p-4">
             <n-space vertical :size="24">
-              <!-- 训练模式选择 -->
+                          <!-- 训练模式选择 -->
               <n-card title="训练模式" :bordered="false" size="small" hoverable>
                 <n-form :label-width="120">
                   <n-form-item label="选择训练模式">
@@ -71,9 +71,9 @@
                   </n-form-item>
                 </n-form>
               </n-card>
-
               <!-- 教师模型配置 -->
-              <n-card v-if="taskForm.trainingMode === 'distillation'" title="教师模型（大模型）" :bordered="false" size="small" hoverable>
+              <!--<n-card title="教师模型（大模型）" :bordered="false" size="small" hoverable>-->
+              <n-card v-if="taskForm.trainingMode === 'distillation'" title="教师模型（大模型）" :bordered="false" size="small" hoverable></n-card>
                 <n-form :label-width="120">
                   <n-grid :cols="2" :x-gap="24">
                     <n-gi>
@@ -1094,7 +1094,7 @@ const trainedModelsPagination = {
 
 // 教师模型选项
 const teacherModelOptions = [
-  { label: 'Qwen2.5-VL-3B', value: 'qwen2.5-vl-3b', paramSize: '3B' }
+  { label: 'Qwen2.5-VL-3B-Instruct', value: 'Qwen2___5-VL-3B-Instruct', paramSize: '3B' }
 ];
 
 // 学生模型选项
