@@ -915,7 +915,7 @@ onBeforeUnmount(() => { });
                             <NInput v-model:value="val.query[index].type" placeholder="请输入参数类型"></NInput>
                           </div>
                         </template>
-<template #action="{ index, value }">
+                        <template #action="{ index, value }">
                           <NSpace class="ml-12px">
                             <NButton size="medium" @click="() => handleCreate(index, val)">
                               <icon-ic:round-plus class="text-icon" />
@@ -925,7 +925,7 @@ onBeforeUnmount(() => { });
                             </NButton>
                           </NSpace>
                         </template>
-</NDynamicInput> -->
+                      </NDynamicInput> -->
                       <n-data-table :bordered="false" :single-line="false" :columns="val.columns" :data="val.query" />
                     </n-form-item-gi>
                   </n-grid>
