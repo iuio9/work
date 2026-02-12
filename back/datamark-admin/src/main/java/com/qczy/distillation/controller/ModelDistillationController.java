@@ -105,6 +105,9 @@ public class ModelDistillationController {
             task.setTaskName(requestDTO.getTaskName());
             task.setDescription(requestDTO.getDescription());
 
+            // 训练模式
+            task.setTrainingMode(requestDTO.getTrainingMode() != null ? requestDTO.getTrainingMode() : "distillation");
+
             // 模型配置
             task.setTeacherModel(requestDTO.getTeacherModel());
             task.setStudentModel(requestDTO.getStudentModel());
