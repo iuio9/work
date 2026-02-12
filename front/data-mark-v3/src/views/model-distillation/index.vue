@@ -161,7 +161,7 @@
               </n-card>
 
               <!-- LoRA 配置 -->
-              <n-card title="LoRA 高效微调配置" :bordered="false" size="small" hoverable>
+              <n-card v-if="taskForm.trainingMode === 'distillation'" title="LoRA 高效微调配置" :bordered="false" size="small" hoverable>
                 <template #header-extra>
                   <n-tag type="success" size="small">
                     <template #icon>
@@ -248,7 +248,7 @@
               </n-card>
 
               <!-- 知识蒸馏配置 -->
-              <n-card title="知识蒸馏超参数" :bordered="false" size="small" hoverable>
+              <n-card v-if="taskForm.trainingMode === 'distillation'" title="知识蒸馏超参数" :bordered="false" size="small" hoverable>
                 <n-form :label-width="140">
                   <n-grid :cols="3" :x-gap="24">
                     <n-gi>
