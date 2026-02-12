@@ -279,25 +279,29 @@ public class TrainingExecutionService {
         command.add("--learning_rate");
         command.add(task.getLearningRate().toString());
 
-        // ========== LoRA配置 ==========
-        command.add("--lora_rank");
-        command.add(String.valueOf(task.getLoraRank()));
+        // ========== LoRA配置（仅知识蒸馏模式） ==========
+        if ("distillation".equals(trainingMode)) {
+            command.add("--lora_rank");
+            command.add(String.valueOf(task.getLoraRank()));
 
-        command.add("--lora_alpha");
-        command.add(String.valueOf(task.getLoraAlpha()));
+            command.add("--lora_alpha");
+            command.add(String.valueOf(task.getLoraAlpha()));
 
-        command.add("--lora_dropout");
-        command.add(task.getLoraDropout().toString());
+            command.add("--lora_dropout");
+            command.add(task.getLoraDropout().toString());
+        }
 
-        // ========== 知识蒸馏参数 ==========
-        command.add("--temperature");
-        command.add(task.getTemperature().toString());
+        // ========== 知识蒸馏参数（仅知识蒸馏模式） ==========
+        if ("distillation".equals(trainingMode)) {
+            command.add("--temperature");
+            command.add(task.getTemperature().toString());
 
-        command.add("--hard_label_weight");
-        command.add(String.valueOf(1.0 - task.getAlpha().doubleValue()));
+            command.add("--hard_label_weight");
+            command.add(String.valueOf(1.0 - task.getAlpha().doubleValue()));
 
-        command.add("--soft_label_weight");
-        command.add(task.getAlpha().toString());
+            command.add("--soft_label_weight");
+            command.add(task.getAlpha().toString());
+        }
 
         // ========== 高级配置（从JSON解析） ==========
         if (config != null) {
@@ -346,8 +350,8 @@ public class TrainingExecutionService {
                 command.add(String.valueOf(config.getCheckpointInterval()));
             }
 
-            // LoRA高级配置
-            if (config.getLoraAdvancedConfig() != null) {
+            // LoRA高级配置（仅知识蒸馏模式）
+            if ("distillation".equals(trainingMode) && config.getLoraAdvancedConfig() != null) {
                 TrainingConfigDTO.LoraAdvancedConfig loraConfig = config.getLoraAdvancedConfig();
 
                 if (loraConfig.getTargetModules() != null && !loraConfig.getTargetModules().isEmpty()) {
@@ -361,8 +365,8 @@ public class TrainingExecutionService {
                 }
             }
 
-            // 知识蒸馏高级配置
-            if (config.getDistillationAdvancedConfig() != null) {
+            // 知识蒸馏高级配置（仅知识蒸馏模式）
+            if ("distillation".equals(trainingMode) && config.getDistillationAdvancedConfig() != null) {
                 TrainingConfigDTO.DistillationAdvancedConfig distillConfig =
                         config.getDistillationAdvancedConfig();
 
@@ -382,48 +386,49 @@ public class TrainingExecutionService {
                 }
             }
 
-            // ========== Qwen2.5-VL多模型配置 ==========
-            // 注意：Qwen脚本要求这些参数必需，所以提供默认值
-            String studentModelType = config.getStudentModelType() != null ?
-                config.getStudentModelType() : "resnet";
-            command.add("--student_model_type");
-            command.add(studentModelType);
+            // ========== Qwen2.5-VL多模型配置（仅知识蒸馏模式） ==========
+            if ("distillation".equals(trainingMode)) {
+                String studentModelType = config.getStudentModelType() != null ?
+                    config.getStudentModelType() : "resnet";
+                command.add("--student_model_type");
+                command.add(studentModelType);
 
-            String studentModelSize = config.getStudentModelSize() != null ?
-                config.getStudentModelSize() : "resnet50";
-            command.add("--student_model_size");
-            command.add(studentModelSize);
+                String studentModelSize = config.getStudentModelSize() != null ?
+                    config.getStudentModelSize() : "resnet50";
+                command.add("--student_model_size");
+                command.add(studentModelSize);
 
-            String taskType = config.getTaskType() != null ?
-                config.getTaskType() : "classification";
-            command.add("--task_type");
-            command.add(taskType);
+                String taskType = config.getTaskType() != null ?
+                    config.getTaskType() : "classification";
+                command.add("--task_type");
+                command.add(taskType);
 
-            Integer numClasses = config.getNumClasses() != null ?
-                config.getNumClasses() : 10;
-            command.add("--num_classes");
-            command.add(String.valueOf(numClasses));
+                Integer numClasses = config.getNumClasses() != null ?
+                    config.getNumClasses() : 10;
+                command.add("--num_classes");
+                command.add(String.valueOf(numClasses));
 
-            Integer imageSize = config.getImageSize() != null ?
-                config.getImageSize() : 224;
-            command.add("--image_size");
-            command.add(String.valueOf(imageSize));
+                Integer imageSize = config.getImageSize() != null ?
+                    config.getImageSize() : 224;
+                command.add("--image_size");
+                command.add(String.valueOf(imageSize));
 
-            if (config.getDistillationType() != null) {
-                command.add("--distillation_type");
-                command.add(config.getDistillationType());
+                if (config.getDistillationType() != null) {
+                    command.add("--distillation_type");
+                    command.add(config.getDistillationType());
+                }
+
+                if (config.getFeatureLossType() != null) {
+                    command.add("--feature_loss_type");
+                    command.add(config.getFeatureLossType());
+                }
+
+                if (config.getAlignFeature() != null) {
+                    command.add("--align_feature");
+                    command.add(String.valueOf(config.getAlignFeature()));
+                }
             }
-
-            if (config.getFeatureLossType() != null) {
-                command.add("--feature_loss_type");
-                command.add(config.getFeatureLossType());
-            }
-
-            if (config.getAlignFeature() != null) {
-                command.add("--align_feature");
-                command.add(String.valueOf(config.getAlignFeature()));
-            }
-        } else {
+        } else if ("distillation".equals(trainingMode)) {
             // config 为 null时，为 Qwen 脚本提供默认值
             command.add("--student_model_type");
             command.add("resnet");
