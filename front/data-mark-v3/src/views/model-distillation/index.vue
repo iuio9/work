@@ -801,52 +801,58 @@
           />
         </n-form-item>
 
-        <!-- Qwen2.5-VL多模型配置 -->
-        <template v-if="isQwenTeacher && taskForm.trainingMode === 'distillation'">
-          <n-divider>Qwen2.5-VL多模型配置</n-divider>
+        <!-- 模型架构与任务配置（两种模式通用） -->
+        <n-divider>模型与任务配置</n-divider>
+
+        <n-grid :cols="2" :x-gap="24">
+          <n-gi>
+            <n-form-item label="任务类型" path="taskType">
+              <n-select
+                v-model:value="taskForm.taskType"
+                :options="taskTypeOptions"
+                placeholder="选择任务类型"
+              />
+            </n-form-item>
+          </n-gi>
+          <n-gi>
+            <n-form-item label="学生模型大小" path="studentModelSize">
+              <n-select
+                v-model:value="taskForm.studentModelSize"
+                :options="studentModelSizeOptions"
+                placeholder="选择模型大小"
+              />
+            </n-form-item>
+          </n-gi>
+          <n-gi>
+            <n-form-item label="分类类别数" path="numClasses">
+              <n-input-number
+                v-model:value="taskForm.numClasses"
+                :min="2"
+                :max="1000"
+                placeholder="类别数"
+                style="width: 100%"
+              />
+            </n-form-item>
+          </n-gi>
+          <n-gi>
+            <n-form-item label="图像尺寸" path="imageSize">
+              <n-input-number
+                v-model:value="taskForm.imageSize"
+                :min="32"
+                :max="1024"
+                :step="32"
+                placeholder="输入图像大小"
+                style="width: 100%"
+              />
+            </n-form-item>
+          </n-gi>
+        </n-grid>
+
+        <!-- 蒸馏专用配置（仅知识蒸馏模式） -->
+        <template v-if="taskForm.trainingMode === 'distillation'">
+          <n-divider>蒸馏策略配置</n-divider>
 
           <n-grid :cols="2" :x-gap="24">
-            <n-gi>
-              <n-form-item label="任务类型" path="taskType">
-                <n-select
-                  v-model:value="taskForm.taskType"
-                  :options="taskTypeOptions"
-                  placeholder="选择任务类型"
-                />
-              </n-form-item>
-            </n-gi>
-            <n-gi>
-              <n-form-item label="学生模型大小" path="studentModelSize">
-                <n-select
-                  v-model:value="taskForm.studentModelSize"
-                  :options="studentModelSizeOptions"
-                  placeholder="选择模型大小"
-                />
-              </n-form-item>
-            </n-gi>
-            <n-gi>
-              <n-form-item label="分类类别数" path="numClasses">
-                <n-input-number
-                  v-model:value="taskForm.numClasses"
-                  :min="2"
-                  :max="1000"
-                  placeholder="类别数"
-                  style="width: 100%"
-                />
-              </n-form-item>
-            </n-gi>
-            <n-gi>
-              <n-form-item label="图像尺寸" path="imageSize">
-                <n-input-number
-                  v-model:value="taskForm.imageSize"
-                  :min="32"
-                  :max="1024"
-                  :step="32"
-                  placeholder="输入图像大小"
-                  style="width: 100%"
-                />
-              </n-form-item>
-            </n-gi>
             <n-gi>
               <n-form-item label="蒸馏类型" path="distillationType">
                 <n-select
