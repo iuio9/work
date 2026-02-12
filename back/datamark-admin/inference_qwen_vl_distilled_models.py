@@ -261,7 +261,10 @@ class ModelInference:
 
         # 加载模型
         self.model = self._load_model()
-        self.model.eval()
+
+        # YOLOv8 使用自己的推理流程，不需要 eval() 和 transform
+        if self.model_type != 'yolov8':
+            self.model.eval()
 
         # 数据预处理
         self.transform = self._get_transform()
@@ -269,9 +272,19 @@ class ModelInference:
         # 加载类别名称
         self.class_names = config.get('class_names', [f"class_{i}" for i in range(config['num_classes'])])
 
-    def _load_model(self) -> nn.Module:
+    def _load_model(self):
         """加载模型"""
         num_classes = self.config['num_classes']
+
+        # YOLOv8 直接用 ultralytics API 加载，兼容标准 best.pt
+        if self.model_type == 'yolov8':
+            try:
+                from ultralytics import YOLO
+                model = YOLO(self.model_path)
+                logger.info(f"YOLOv8模型加载成功: {self.model_path}")
+                return model
+            except ImportError:
+                raise ImportError("ultralytics未安装，请运行: pip install ultralytics")
 
         if self.model_type == 'resnet':
             model = ResNetStudent(
@@ -283,11 +296,6 @@ class ModelInference:
                 num_classes=num_classes,
                 model_size=self.config.get('model_size', 'vit-base'),
                 image_size=self.config.get('image_size', 224)
-            )
-        elif self.model_type == 'yolov8':
-            model = YOLOv8Student(
-                num_classes=num_classes,
-                model_size=self.config.get('model_size', 'n')
             )
         elif self.model_type == 'unet':
             model = UNetStudent(num_classes=num_classes)
@@ -383,6 +391,10 @@ class ModelInference:
 
     def predict(self, image_paths: List[str], batch_size: int = 8) -> List[Dict]:
         """批量推理"""
+        # YOLOv8 使用原生 ultralytics 推理接口，直接传图片路径
+        if self.model_type == 'yolov8':
+            return self._predict_yolov8(image_paths, batch_size)
+
         dataset = InferenceDataset(image_paths, transform=self.transform)
         dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
 
@@ -393,14 +405,55 @@ class ModelInference:
 
             if self.model_type in ['resnet', 'vit', 'lstm']:
                 results = self.predict_classification(images, paths)
-            elif self.model_type == 'yolov8':
-                results = self.predict_detection(images, paths)
             elif self.model_type == 'unet':
                 results = self.predict_segmentation(images, paths)
             else:
                 raise ValueError(f"不支持的任务类型")
 
             all_results.extend(results)
+
+        return all_results
+
+    def _predict_yolov8(self, image_paths: List[str], batch_size: int = 8) -> List[Dict]:
+        """使用 ultralytics YOLO 原生接口推理"""
+        all_results = []
+
+        # 分批推理
+        for i in tqdm(range(0, len(image_paths), batch_size), desc="YOLOv8推理中"):
+            batch_paths = image_paths[i:i + batch_size]
+            yolo_results = self.model(batch_paths, verbose=False)
+
+            for img_path, result in zip(batch_paths, yolo_results):
+                image = Image.open(img_path)
+                width, height = image.size
+
+                shapes = []
+                if result.boxes is not None:
+                    for box in result.boxes:
+                        x1, y1, x2, y2 = box.xyxy[0].tolist()
+                        conf = float(box.conf[0])
+                        cls_id = int(box.cls[0])
+                        cls_name = result.names.get(cls_id, f"class_{cls_id}")
+
+                        if conf > 0.25:
+                            shapes.append({
+                                "label": cls_name,
+                                "points": [[x1, y1], [x2, y2]],
+                                "group_id": None,
+                                "description": f"{conf:.2%}",
+                                "shape_type": "rectangle",
+                                "flags": {}
+                            })
+
+                all_results.append({
+                    "version": "5.0.1",
+                    "flags": {},
+                    "shapes": shapes,
+                    "imagePath": os.path.basename(img_path),
+                    "imageData": None,
+                    "imageHeight": height,
+                    "imageWidth": width
+                })
 
         return all_results
 
