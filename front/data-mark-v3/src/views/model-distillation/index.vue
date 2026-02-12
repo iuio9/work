@@ -1952,7 +1952,26 @@ async function handleCreateTask() {
         distillLossType: distillConfig.value.lossType,
         intermediateLayers: distillConfig.value.intermediateLayers,
         attentionDistill: distillConfig.value.attentionDistill,
-      } : {})
+      } : {
+        // 单独训练模式下，数据库必填字段给默认值
+        teacherModel: '',
+        teacherParamSize: '',
+        teacherModelPath: '',
+        teacherQuantization: '',
+        loraRank: 0,
+        loraAlpha: 0,
+        loraDropout: 0,
+        loraTargetModules: '',
+        loraLayers: '',
+        loraBiasTrain: '',
+        temperature: 0,
+        alpha: 0,
+        hardLabelWeight: 0,
+        softLabelWeight: 0,
+        distillLossType: '',
+        intermediateLayers: false,
+        attentionDistill: false,
+      })
     };
 
     console.log('准备提交训练任务数据:', submitData);
