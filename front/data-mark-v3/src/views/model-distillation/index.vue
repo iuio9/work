@@ -650,6 +650,12 @@
       :bordered="false"
     >
       <n-form ref="taskFormRef" :model="taskForm" :rules="taskFormRules" :label-width="140">
+        <n-form-item label="训练模式">
+          <n-tag :type="taskForm.trainingMode === 'distillation' ? 'info' : 'success'" size="medium">
+            {{ taskForm.trainingMode === 'distillation' ? '知识蒸馏训练' : '单独训练' }}
+          </n-tag>
+        </n-form-item>
+
         <n-form-item label="任务名称" path="taskName">
           <n-input v-model:value="taskForm.taskName" placeholder="输入任务名称" />
         </n-form-item>
@@ -796,7 +802,7 @@
         </n-form-item>
 
         <!-- Qwen2.5-VL多模型配置 -->
-        <template v-if="isQwenTeacher">
+        <template v-if="isQwenTeacher && taskForm.trainingMode === 'distillation'">
           <n-divider>Qwen2.5-VL多模型配置</n-divider>
 
           <n-grid :cols="2" :x-gap="24">
@@ -1914,34 +1920,39 @@ async function handleCreateTask() {
     creatingTask.value = true;
 
     // 准备提交数据
+    const isDistillation = taskForm.value.trainingMode === 'distillation';
     const submitData: any = {
       ...taskForm.value,
-      // 从Tab1的模型配置中获取
-      teacherModel: teacherModel.value.modelId,
+      // 学生模型（两种模式都需要）
       studentModel: studentModel.value.modelId,
-      teacherParamSize: teacherModel.value.paramSize,
-      teacherModelPath: teacherModel.value.modelPath,
-      teacherQuantization: teacherModel.value.quantization,
       studentParamSize: studentModel.value.paramSize,
       studentInitMethod: studentModel.value.initMethod,
       studentPretrainPath: studentModel.value.pretrainPath,
-      // LoRA配置
-      loraRank: loraConfig.value.rank,
-      loraAlpha: loraConfig.value.alpha,
-      loraDropout: loraConfig.value.dropout,
-      loraTargetModules: loraConfig.value.targetModules?.join(','),
-      loraLayers: loraConfig.value.layers,
-      loraBiasTrain: loraConfig.value.biasTrain,
-      // 知识蒸馏配置
-      temperature: distillConfig.value.temperature,
-      alpha: distillConfig.value.softLabelWeight,
-      hardLabelWeight: distillConfig.value.hardLabelWeight,
-      softLabelWeight: distillConfig.value.softLabelWeight,
-      distillLossType: distillConfig.value.lossType,
-      intermediateLayers: distillConfig.value.intermediateLayers,
-      attentionDistill: distillConfig.value.attentionDistill,
       // GPU设备转为逗号分隔字符串
-      gpuDevices: taskForm.value.gpuDevices?.join(',')
+      gpuDevices: taskForm.value.gpuDevices?.join(','),
+      // 以下仅在知识蒸馏模式下提交
+      ...(isDistillation ? {
+        // 教师模型配置
+        teacherModel: teacherModel.value.modelId,
+        teacherParamSize: teacherModel.value.paramSize,
+        teacherModelPath: teacherModel.value.modelPath,
+        teacherQuantization: teacherModel.value.quantization,
+        // LoRA配置
+        loraRank: loraConfig.value.rank,
+        loraAlpha: loraConfig.value.alpha,
+        loraDropout: loraConfig.value.dropout,
+        loraTargetModules: loraConfig.value.targetModules?.join(','),
+        loraLayers: loraConfig.value.layers,
+        loraBiasTrain: loraConfig.value.biasTrain,
+        // 知识蒸馏配置
+        temperature: distillConfig.value.temperature,
+        alpha: distillConfig.value.softLabelWeight,
+        hardLabelWeight: distillConfig.value.hardLabelWeight,
+        softLabelWeight: distillConfig.value.softLabelWeight,
+        distillLossType: distillConfig.value.lossType,
+        intermediateLayers: distillConfig.value.intermediateLayers,
+        attentionDistill: distillConfig.value.attentionDistill,
+      } : {})
     };
 
     console.log('准备提交训练任务数据:', submitData);
