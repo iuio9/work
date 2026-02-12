@@ -386,33 +386,34 @@ public class TrainingExecutionService {
                 }
             }
 
-            // ========== Qwen2.5-VL多模型配置（仅知识蒸馏模式） ==========
+            // ========== 模型架构与任务配置（两种模式通用） ==========
+            String studentModelType = config.getStudentModelType() != null ?
+                config.getStudentModelType() : "resnet";
+            command.add("--student_model_type");
+            command.add(studentModelType);
+
+            String studentModelSize = config.getStudentModelSize() != null ?
+                config.getStudentModelSize() : "resnet50";
+            command.add("--student_model_size");
+            command.add(studentModelSize);
+
+            String taskType = config.getTaskType() != null ?
+                config.getTaskType() : "classification";
+            command.add("--task_type");
+            command.add(taskType);
+
+            Integer numClasses = config.getNumClasses() != null ?
+                config.getNumClasses() : 10;
+            command.add("--num_classes");
+            command.add(String.valueOf(numClasses));
+
+            Integer imageSize = config.getImageSize() != null ?
+                config.getImageSize() : 224;
+            command.add("--image_size");
+            command.add(String.valueOf(imageSize));
+
+            // ========== 蒸馏专用配置（仅知识蒸馏模式） ==========
             if ("distillation".equals(trainingMode)) {
-                String studentModelType = config.getStudentModelType() != null ?
-                    config.getStudentModelType() : "resnet";
-                command.add("--student_model_type");
-                command.add(studentModelType);
-
-                String studentModelSize = config.getStudentModelSize() != null ?
-                    config.getStudentModelSize() : "resnet50";
-                command.add("--student_model_size");
-                command.add(studentModelSize);
-
-                String taskType = config.getTaskType() != null ?
-                    config.getTaskType() : "classification";
-                command.add("--task_type");
-                command.add(taskType);
-
-                Integer numClasses = config.getNumClasses() != null ?
-                    config.getNumClasses() : 10;
-                command.add("--num_classes");
-                command.add(String.valueOf(numClasses));
-
-                Integer imageSize = config.getImageSize() != null ?
-                    config.getImageSize() : 224;
-                command.add("--image_size");
-                command.add(String.valueOf(imageSize));
-
                 if (config.getDistillationType() != null) {
                     command.add("--distillation_type");
                     command.add(config.getDistillationType());
@@ -428,8 +429,8 @@ public class TrainingExecutionService {
                     command.add(String.valueOf(config.getAlignFeature()));
                 }
             }
-        } else if ("distillation".equals(trainingMode)) {
-            // config 为 null时，为 Qwen 脚本提供默认值
+        } else {
+            // config 为 null时，提供默认值
             command.add("--student_model_type");
             command.add("resnet");
             command.add("--student_model_size");
