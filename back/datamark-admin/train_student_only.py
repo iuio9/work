@@ -283,6 +283,94 @@ class StudentModelBuilder:
         return model
 
     @staticmethod
+    def build_yolov8(model_size: str, num_classes: int):
+        """构建YOLOv8模型"""
+        if not YOLO_AVAILABLE:
+            raise ImportError("YOLOv8未安装，请运行: pip install ultralytics")
+
+        yolo_sizes = {'n': 'yolov8n.pt', 's': 'yolov8s.pt', 'm': 'yolov8m.pt',
+                     'l': 'yolov8l.pt', 'x': 'yolov8x.pt'}
+
+        if model_size not in yolo_sizes:
+            raise ValueError(f"不支持的YOLO大小: {model_size}")
+
+        model = YOLO(yolo_sizes[model_size])
+        print(f"✓ YOLOv8-{model_size}加载成功")
+        return model
+
+    @staticmethod
+    def build_unet(model_size: str, num_classes: int):
+        """构建UNet模型"""
+        class SimpleUNet(nn.Module):
+            def __init__(self, in_channels=3, num_classes=10):
+                super().__init__()
+                self.enc1 = self._conv_block(in_channels, 64)
+                self.enc2 = self._conv_block(64, 128)
+                self.enc3 = self._conv_block(128, 256)
+                self.enc4 = self._conv_block(256, 512)
+
+                self.dec3 = self._conv_block(512 + 256, 256)
+                self.dec2 = self._conv_block(256 + 128, 128)
+                self.dec1 = self._conv_block(128 + 64, 64)
+
+                self.final = nn.Conv2d(64, num_classes, 1)
+                self.pool = nn.MaxPool2d(2)
+                self.upsample = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+
+            def _conv_block(self, in_ch, out_ch):
+                return nn.Sequential(
+                    nn.Conv2d(in_ch, out_ch, 3, padding=1),
+                    nn.BatchNorm2d(out_ch),
+                    nn.ReLU(inplace=True),
+                    nn.Conv2d(out_ch, out_ch, 3, padding=1),
+                    nn.BatchNorm2d(out_ch),
+                    nn.ReLU(inplace=True)
+                )
+
+            def forward(self, x):
+                e1 = self.enc1(x)
+                e2 = self.enc2(self.pool(e1))
+                e3 = self.enc3(self.pool(e2))
+                e4 = self.enc4(self.pool(e3))
+
+                d3 = self.dec3(torch.cat([self.upsample(e4), e3], dim=1))
+                d2 = self.dec2(torch.cat([self.upsample(d3), e2], dim=1))
+                d1 = self.dec1(torch.cat([self.upsample(d2), e1], dim=1))
+
+                return self.final(d1)
+
+        model = SimpleUNet(in_channels=3, num_classes=num_classes)
+        print(f"✓ UNet-{model_size}加载成功，参数量: {sum(p.numel() for p in model.parameters()):,}")
+        return model
+
+    @staticmethod
+    def build_lstm(model_size: str, num_classes: int):
+        """构建LSTM模型"""
+        hidden_sizes = {'small': 256, 'medium': 512, 'large': 1024}
+        hidden_size = hidden_sizes.get(model_size, 512)
+
+        class LSTMClassifier(nn.Module):
+            def __init__(self, input_size=224*3, hidden_size=512, num_layers=2, num_classes=10):
+                super().__init__()
+                self.hidden_size = hidden_size
+                self.num_layers = num_layers
+                self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True, dropout=0.3)
+                self.fc = nn.Linear(hidden_size, num_classes)
+
+            def forward(self, x):
+                # x: (batch, C, H, W) -> (batch, H, W*C)
+                b, c, h, w = x.shape
+                x = x.permute(0, 2, 3, 1).reshape(b, h, w * c)
+                out, _ = self.lstm(x)
+                out = out[:, -1, :]  # 取最后一个时间步
+                return self.fc(out)
+
+        model = LSTMClassifier(input_size=224*3, hidden_size=hidden_size,
+                              num_layers=2, num_classes=num_classes)
+        print(f"✓ LSTM-{model_size}加载成功，参数量: {sum(p.numel() for p in model.parameters()):,}")
+        return model
+
+    @staticmethod
     def build_model(
         model_type: str,
         model_size: str,
@@ -309,6 +397,12 @@ class StudentModelBuilder:
             return StudentModelBuilder.build_resnet(model_size, num_classes)
         elif model_type == 'vit':
             return StudentModelBuilder.build_vit(model_size, num_classes)
+        elif model_type == 'yolov8':
+            return StudentModelBuilder.build_yolov8(model_size, num_classes)
+        elif model_type == 'unet':
+            return StudentModelBuilder.build_unet(model_size, num_classes)
+        elif model_type == 'lstm':
+            return StudentModelBuilder.build_lstm(model_size, num_classes)
         else:
             raise ValueError(f"不支持的模型类型: {model_type}")
 

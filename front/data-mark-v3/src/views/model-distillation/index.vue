@@ -806,11 +806,12 @@
 
         <n-grid :cols="2" :x-gap="24">
           <n-gi>
-            <n-form-item label="任务类型" path="taskType">
+            <n-form-item label="学生模型类型" path="studentModelType">
               <n-select
-                v-model:value="taskForm.taskType"
-                :options="taskTypeOptions"
-                placeholder="选择任务类型"
+                v-model:value="taskForm.studentModelType"
+                :options="studentModelTypeOptions"
+                placeholder="选择模型类型"
+                @update:value="handleStudentModelTypeChange"
               />
             </n-form-item>
           </n-gi>
@@ -820,6 +821,15 @@
                 v-model:value="taskForm.studentModelSize"
                 :options="studentModelSizeOptions"
                 placeholder="选择模型大小"
+              />
+            </n-form-item>
+          </n-gi>
+          <n-gi>
+            <n-form-item label="任务类型" path="taskType">
+              <n-select
+                v-model:value="taskForm.taskType"
+                :options="taskTypeOptions"
+                placeholder="选择任务类型"
               />
             </n-form-item>
           </n-gi>
@@ -1052,8 +1062,8 @@ const taskForm = ref({
   autoSaveCheckpoint: true,
   checkpointInterval: 5,
   // Qwen2.5-VL多模型配置
-  studentModelType: '',
-  studentModelSize: '',
+  studentModelType: 'resnet',
+  studentModelSize: 'resnet18',
   taskType: 'classification',
   numClasses: 10,
   imageSize: 224,
@@ -1191,7 +1201,16 @@ const gpuOptions = [
   { label: 'GPU 3', value: '3' }
 ];
 
-// Qwen2.5-VL学生模型大小选项
+// 学生模型类型选项
+const studentModelTypeOptions = [
+  { label: 'ResNet', value: 'resnet' },
+  { label: 'Vision Transformer', value: 'vit' },
+  { label: 'YOLOv8', value: 'yolov8' },
+  { label: 'UNet', value: 'unet' },
+  { label: 'LSTM', value: 'lstm' }
+];
+
+// 学生模型大小选项
 const studentModelSizeOptions = ref([
   { label: 'ResNet18', value: 'resnet18' },
   { label: 'ResNet34', value: 'resnet34' },
