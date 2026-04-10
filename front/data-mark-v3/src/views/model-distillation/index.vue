@@ -602,6 +602,7 @@
                   :loading="tasksLoading"
                   :pagination="trainedModelsPagination"
                   :bordered="false"
+                  :row-key="(row) => row._rowKey"
                 />
               </n-card>
             </n-space>
@@ -1308,52 +1309,67 @@ const trainedModelsColumns = [
   {
     title: '任务ID',
     key: 'taskId',
-    width: 120,
-    ellipsis: { tooltip: true }
+    width: 150,
+    ellipsis: { tooltip: true },
+    render(row: any) {
+      return String(row.taskId ?? row.id ?? '-');
+    }
   },
   {
     title: '任务名称',
     key: 'taskName',
-    width: 180,
-    ellipsis: { tooltip: true }
+    width: 200,
+    ellipsis: { tooltip: true },
+    render(row: any) {
+      return String(row.taskName ?? '-');
+    }
   },
   {
     title: '教师模型',
     key: 'teacherModel',
     width: 150,
-    render: (row: any) => {
-      const model = teacherModelOptions.find(m => m.value === row.teacherModel);
-      return h('span', model?.label || row.teacherModel);
+    render(row: any) {
+      const teacher = row.teacherModel;
+      if (!teacher) return '-';
+      const model = teacherModelOptions.find(m => m.value === teacher);
+      return String(model?.label ?? teacher);
     }
   },
   {
     title: '学生模型',
     key: 'studentModel',
     width: 150,
-    render: (row: any) => {
-      const model = studentModelOptions.find(m => m.value === row.studentModel);
-      return h('span', model?.label || row.studentModel);
+    render(row: any) {
+      const student = row.studentModel;
+      if (!student) return '-';
+      const model = studentModelOptions.find(m => m.value === student);
+      return String(model?.label ?? student);
     }
   },
   {
     title: '训练轮数',
     key: 'totalEpochs',
     width: 100,
-    align: 'center'
+    render(row: any) {
+      return row.totalEpochs ?? '-';
+    }
   },
   {
     title: 'LoRA Rank',
     key: 'loraRank',
     width: 100,
-    align: 'center'
+    render(row: any) {
+      return row.loraRank ?? '-';
+    }
   },
   {
     title: '准确率',
     key: 'accuracy',
     width: 120,
-    align: 'center',
-    render: (row: any) => {
-      const accuracy = row.accuracy || 0;
+    render(row: any) {
+      if (row.accuracy === null || row.accuracy === undefined) return '-';
+      const accuracy = Number(row.accuracy);
+      if (Number.isNaN(accuracy)) return '-';
       const type = accuracy >= 90 ? 'success' : accuracy >= 80 ? 'info' : accuracy >= 70 ? 'warning' : 'error';
       return h(
         NTag,
@@ -1365,39 +1381,37 @@ const trainedModelsColumns = [
   {
     title: '创建时间',
     key: 'createTime',
-    width: 180
+    width: 180,
+    render(row: any) {
+      return formatDateTime(row.createTime);
+    }
   },
   {
     title: '操作',
     key: 'actions',
     width: 200,
-    align: 'center',
     fixed: 'right',
-    render: (row: any) => {
-      return h(
-        'div',
-        { class: 'flex gap-8px justify-center' },
-        [
-          h(
-            NButton,
-            {
-              size: 'small',
-              type: 'primary',
-              onClick: () => handleViewTrainedModelDetail(row)
-            },
-            { default: () => '查看详情' }
-          ),
-          h(
-            NButton,
-            {
-              size: 'small',
-              type: 'info',
-              onClick: () => handleUseModelForAnnotation(row)
-            },
-            { default: () => '用于标注' }
-          )
-        ]
-      );
+    render(row: any) {
+      return h('div', { class: 'flex gap-8px justify-center' }, [
+        h(
+          NButton,
+          {
+            size: 'small',
+            type: 'primary',
+            onClick: () => handleViewTrainedModelDetail(row)
+          },
+          { default: () => '查看详情' }
+        ),
+        h(
+          NButton,
+          {
+            size: 'small',
+            type: 'info',
+            onClick: () => handleUseModelForAnnotation(row)
+          },
+          { default: () => '用于标注' }
+        )
+      ]);
     }
   }
 ];
@@ -2532,42 +2546,44 @@ function resetTrainedModelsSearch() {
 
 // 查看训练模型详情
 function handleViewTrainedModelDetail(row: any) {
+  const accuracyNum = Number(row.accuracy);
+  const accuracyText = Number.isNaN(accuracyNum) ? '-' : `${accuracyNum.toFixed(2)}%`;
   dialog.info({
-    title: `模型详情 - ${row.taskName}`,
+    title: `模型详情 - ${row.taskName ?? '-'}`,
     content: () =>
       h('div', { class: 'space-y-4' }, [
         h('div', { class: 'grid grid-cols-2 gap-4' }, [
           h('div', [
             h('strong', '任务ID: '),
-            h('span', row.taskId)
+            h('span', String(row.taskId ?? '-'))
           ]),
           h('div', [
             h('strong', '任务名称: '),
-            h('span', row.taskName)
+            h('span', String(row.taskName ?? '-'))
           ]),
           h('div', [
             h('strong', '教师模型: '),
-            h('span', teacherModelOptions.find(m => m.value === row.teacherModel)?.label || row.teacherModel)
+            h('span', String(teacherModelOptions.find(m => m.value === row.teacherModel)?.label ?? row.teacherModel ?? '-'))
           ]),
           h('div', [
             h('strong', '学生模型: '),
-            h('span', studentModelOptions.find(m => m.value === row.studentModel)?.label || row.studentModel)
+            h('span', String(studentModelOptions.find(m => m.value === row.studentModel)?.label ?? row.studentModel ?? '-'))
           ]),
           h('div', [
             h('strong', '训练轮数: '),
-            h('span', row.totalEpochs)
+            h('span', String(row.totalEpochs ?? '-'))
           ]),
           h('div', [
             h('strong', 'LoRA Rank: '),
-            h('span', row.loraRank)
+            h('span', String(row.loraRank ?? '-'))
           ]),
           h('div', [
             h('strong', '准确率: '),
-            h('span', `${row.accuracy.toFixed(2)}%`)
+            h('span', accuracyText)
           ]),
           h('div', [
             h('strong', '创建时间: '),
-            h('span', row.createTime)
+            h('span', String(row.createTime ?? '-'))
           ])
         ])
       ]),
