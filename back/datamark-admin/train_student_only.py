@@ -889,14 +889,22 @@ class YoloV8DetectionTrainer:
         self.send_progress_update(self.config.epochs, 0.0, self.best_map)
 
         # 复制 best.pt 到标准的 best/ 目录（便于后续推理脚本定位）
-        run_dir = Path(self.config.output_dir) / run_name / 'weights'
-        best_pt = run_dir / 'best.pt'
+        # 直接使用 ultralytics 返回的 results.save_dir，避免手动拼路径时
+        # ultralytics 内部路径策略变化导致找不到 best.pt
+        try:
+            best_pt = Path(results.save_dir) / 'weights' / 'best.pt'
+        except AttributeError:
+            # 兜底：老版本 ultralytics 的 results 可能没有 save_dir
+            best_pt = Path(self.config.output_dir) / run_name / 'weights' / 'best.pt'
+
         if best_pt.exists():
             standard_best_dir = Path(self.config.output_dir) / 'best'
             standard_best_dir.mkdir(parents=True, exist_ok=True)
             import shutil
             shutil.copy(str(best_pt), str(standard_best_dir / 'best.pt'))
             print(f"✅ 已将 best.pt 复制到: {standard_best_dir}/best.pt")
+        else:
+            print(f"⚠️ 未找到 best.pt: {best_pt}")
 
     def send_progress_update(self, epoch: int, loss: float, accuracy: float):
         """向后端上报进度（YOLOv8原生训练不支持逐epoch回调，只在结束时上报一次）"""
