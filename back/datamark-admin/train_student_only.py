@@ -53,6 +53,23 @@ except ImportError:
     YOLO_AVAILABLE = False
     warnings.warn("YOLOv8未安装，使用: pip install ultralytics")
 
+# OpenCV（目标检测数据加载需要）
+try:
+    import cv2
+    CV2_AVAILABLE = True
+except ImportError:
+    CV2_AVAILABLE = False
+    warnings.warn("OpenCV未安装，目标检测训练将不可用，请运行: pip install opencv-python")
+
+# pycocotools（目标检测评估需要）
+try:
+    from pycocotools.coco import COCO
+    from pycocotools.cocoeval import COCOeval
+    PYCOCOTOOLS_AVAILABLE = True
+except ImportError:
+    PYCOCOTOOLS_AVAILABLE = False
+    warnings.warn("pycocotools未安装，Faster R-CNN mAP评估将不可用: pip install pycocotools")
+
 
 # ==================== 配置类 ====================
 
@@ -407,6 +424,494 @@ class StudentModelBuilder:
             raise ValueError(f"不支持的模型类型: {model_type}")
 
 
+# ==================== 目标检测数据集 ====================
+
+class YoloDetectionDataset(Dataset):
+    """YOLO格式目标检测数据集（用于Faster R-CNN等torchvision检测模型）
+
+    期望目录结构：
+        data_root/
+          images/train/*.jpg
+          images/val/*.jpg
+          labels/train/*.txt  (YOLO格式: cls_id xc yc w h 归一化)
+          labels/val/*.txt
+    """
+
+    def __init__(self, data_root: str, split: str = 'train'):
+        if not CV2_AVAILABLE:
+            raise ImportError("目标检测数据集需要 opencv-python，请运行: pip install opencv-python")
+
+        self.data_root = Path(data_root)
+        self.img_dir = self.data_root / "images" / split
+        self.label_dir = self.data_root / "labels" / split
+
+        if not self.img_dir.exists():
+            raise FileNotFoundError(f"图像目录不存在: {self.img_dir}")
+
+        # 支持多种图像格式
+        self.images = []
+        for ext in ('*.jpg', '*.jpeg', '*.png', '*.bmp'):
+            self.images.extend(list(self.img_dir.glob(ext)))
+        self.images = sorted(self.images)
+
+        print(f"✅ YOLO检测数据集: {self.img_dir} (split={split}, 图像数={len(self.images)})")
+
+    def __len__(self):
+        return len(self.images)
+
+    def __getitem__(self, idx):
+        img_path = self.images[idx]
+        label_path = self.label_dir / f"{img_path.stem}.txt"
+
+        img = cv2.imread(str(img_path))
+        if img is None:
+            raise RuntimeError(f"无法读取图像: {img_path}")
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        h, w, _ = img.shape
+
+        boxes = []
+        labels = []
+
+        if label_path.exists():
+            with open(label_path) as f:
+                for line in f:
+                    parts = line.strip().split()
+                    if len(parts) < 5:
+                        continue
+                    cid, xc, yc, bw, bh = map(float, parts[:5])
+                    x1 = (xc - bw / 2) * w
+                    y1 = (yc - bh / 2) * h
+                    x2 = (xc + bw / 2) * w
+                    y2 = (yc + bh / 2) * h
+                    boxes.append([x1, y1, x2, y2])
+                    # torchvision 检测模型约定 0 = background，所以标签 +1
+                    labels.append(int(cid) + 1)
+
+        if len(boxes) == 0:
+            boxes = torch.zeros((0, 4), dtype=torch.float32)
+            labels = torch.zeros((0,), dtype=torch.int64)
+        else:
+            boxes = torch.tensor(boxes, dtype=torch.float32)
+            labels = torch.tensor(labels, dtype=torch.int64)
+
+        target = {
+            "boxes": boxes,
+            "labels": labels,
+            "image_id": torch.tensor([idx]),
+        }
+
+        img_tensor = torch.from_numpy(img).permute(2, 0, 1).float() / 255.0
+
+        return img_tensor, target
+
+
+def detection_collate_fn(batch):
+    """目标检测专用collate函数（处理可变数量目标）"""
+    return tuple(zip(*batch))
+
+
+# ==================== COCO mAP 评估器 ====================
+
+class CocoEvaluator:
+    """将YoloDetectionDataset的GT转换为COCO格式并评估mAP"""
+
+    def __init__(self, dataset: 'YoloDetectionDataset', num_classes: int):
+        if not PYCOCOTOOLS_AVAILABLE:
+            raise ImportError("mAP评估需要 pycocotools，请运行: pip install pycocotools")
+
+        self.dataset = dataset
+
+        images_meta = []
+        anns = []
+        ann_id = 1
+
+        for i in range(len(dataset)):
+            _, target = dataset[i]
+            images_meta.append({"id": i})
+
+            for box, label in zip(target["boxes"], target["labels"]):
+                x1, y1, x2, y2 = box.tolist()
+                anns.append({
+                    "id": ann_id,
+                    "image_id": i,
+                    "category_id": int(label),
+                    "bbox": [x1, y1, x2 - x1, y2 - y1],
+                    "area": (x2 - x1) * (y2 - y1),
+                    "iscrowd": 0,
+                })
+                ann_id += 1
+
+        # 类别ID从1开始（0留给background）
+        cats = [{"id": i} for i in range(1, num_classes + 1)]
+
+        coco_dict = {
+            "images": images_meta,
+            "annotations": anns,
+            "categories": cats,
+        }
+
+        self.coco_gt = COCO()
+        self.coco_gt.dataset = coco_dict
+        self.coco_gt.createIndex()
+
+    def evaluate(self, model, dataloader, device):
+        model.eval()
+        coco_results = []
+
+        with torch.no_grad():
+            for imgs, targets in tqdm(dataloader, desc="验证中"):
+                imgs = [i.to(device) for i in imgs]
+                outputs = model(imgs)
+
+                for out, tgt in zip(outputs, targets):
+                    img_id = int(tgt["image_id"])
+                    for box, score, label in zip(out["boxes"], out["scores"], out["labels"]):
+                        coco_results.append({
+                            "image_id": img_id,
+                            "category_id": int(label),
+                            "bbox": [
+                                box[0].item(),
+                                box[1].item(),
+                                box[2].item() - box[0].item(),
+                                box[3].item() - box[1].item(),
+                            ],
+                            "score": score.item(),
+                        })
+
+        if len(coco_results) == 0:
+            print("⚠️ 验证集未产生任何检测结果，返回全零mAP")
+            return [0.0] * 12
+
+        coco_dt = self.coco_gt.loadRes(coco_results)
+        coco_eval = COCOeval(self.coco_gt, coco_dt, "bbox")
+        coco_eval.evaluate()
+        coco_eval.accumulate()
+        coco_eval.summarize()
+        return coco_eval.stats
+
+
+# ==================== Faster R-CNN 检测训练器 ====================
+
+class FasterRCNNDetectionTrainer:
+    """Faster R-CNN (ResNet50-FPN) 目标检测训练器
+
+    基于 resnet-ele.py 的训练逻辑改造而来。
+    """
+
+    def __init__(self, config: TrainingConfig):
+        self.config = config
+
+        print("\n" + "=" * 60)
+        print("初始化 Faster R-CNN 目标检测训练器")
+        print("=" * 60)
+
+        from torchvision.models.detection import fasterrcnn_resnet50_fpn
+        from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
+
+        # num_classes + 1（+1 留给 background）
+        num_classes_with_bg = config.num_classes + 1
+
+        model = fasterrcnn_resnet50_fpn(weights="DEFAULT")
+        in_features = model.roi_heads.box_predictor.cls_score.in_features
+        model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes_with_bg)
+
+        self.model = model.to(config.device)
+
+        self.optimizer = torch.optim.AdamW(
+            self.model.parameters(),
+            lr=config.learning_rate,
+            weight_decay=config.weight_decay,
+        )
+
+        self.best_map = 0.0
+        self.train_losses = []
+        self.val_accuracies = []
+
+    def train(self, train_loader: DataLoader, val_loader: DataLoader, val_dataset: YoloDetectionDataset):
+        """完整训练流程"""
+        print("\n" + "=" * 60)
+        print("开始 Faster R-CNN 训练")
+        print("=" * 60)
+
+        evaluator = CocoEvaluator(val_dataset, self.config.num_classes)
+
+        for epoch in range(1, self.config.epochs + 1):
+            self.model.train()
+            print(f"\n{'=' * 60}")
+            print(f"Epoch {epoch}/{self.config.epochs}")
+            print(f"{'=' * 60}")
+
+            epoch_loss = 0.0
+            n_batches = 0
+            pbar = tqdm(train_loader, desc=f"Epoch {epoch}")
+
+            for imgs, targets in pbar:
+                # 过滤没有GT的样本（Faster R-CNN不支持空目标）
+                valid_imgs, valid_targets = [], []
+                for img, tgt in zip(imgs, targets):
+                    if tgt["boxes"].shape[0] > 0:
+                        valid_imgs.append(img)
+                        valid_targets.append(tgt)
+
+                if len(valid_imgs) == 0:
+                    continue
+
+                imgs_dev = [i.to(self.config.device) for i in valid_imgs]
+                tgts_dev = [
+                    {k: v.to(self.config.device) for k, v in t.items()}
+                    for t in valid_targets
+                ]
+
+                loss_dict = self.model(imgs_dev, tgts_dev)
+                loss = sum(loss_dict.values())
+
+                self.optimizer.zero_grad()
+                loss.backward()
+
+                if self.config.max_grad_norm > 0:
+                    torch.nn.utils.clip_grad_norm_(
+                        self.model.parameters(),
+                        self.config.max_grad_norm,
+                    )
+
+                self.optimizer.step()
+
+                epoch_loss += float(loss)
+                n_batches += 1
+                pbar.set_postfix(loss=float(loss))
+
+            avg_loss = epoch_loss / max(n_batches, 1)
+            self.train_losses.append(avg_loss)
+
+            # ========== 验证 ==========
+            stats = evaluator.evaluate(self.model, val_loader, self.config.device)
+            map5095 = float(stats[0]) * 100.0  # COCO mAP@[0.5:0.95]
+            map50 = float(stats[1]) * 100.0    # COCO mAP@0.5
+
+            self.val_accuracies.append(map50)
+
+            print(f"\n📊 Epoch {epoch}: loss={avg_loss:.4f}, mAP50={map50:.2f}%, mAP50-95={map5095:.2f}%")
+
+            # 保存定期checkpoint
+            if self.config.auto_save_checkpoint and epoch % self.config.checkpoint_interval == 0:
+                self._save_checkpoint(epoch)
+
+            # 保存最佳模型（按mAP50-95）
+            if map5095 > self.best_map:
+                self.best_map = map5095
+                self._save_best()
+                print(f"🎉 新的最佳 mAP50-95: {map5095:.2f}%")
+
+            # 上报进度（使用mAP50作为可视化指标）
+            self.send_progress_update(epoch, avg_loss, map50)
+
+        # 训练结束保存final
+        self._save_final()
+        print("\n" + "=" * 60)
+        print("Faster R-CNN 训练完成!")
+        print(f"最佳 mAP50-95: {self.best_map:.2f}%")
+        print("=" * 60)
+
+    def _save_checkpoint(self, epoch: int):
+        ckpt_dir = os.path.join(self.config.output_dir, f'checkpoint-epoch-{epoch}')
+        os.makedirs(ckpt_dir, exist_ok=True)
+        torch.save(self.model.state_dict(), os.path.join(ckpt_dir, 'model.pt'))
+        info = {
+            'epoch': epoch,
+            'model_type': 'fasterrcnn_resnet50_fpn',
+            'num_classes': self.config.num_classes,
+            'best_map': self.best_map,
+        }
+        with open(os.path.join(ckpt_dir, 'training_info.json'), 'w') as f:
+            json.dump(info, f, indent=2)
+        print(f"✅ 检查点已保存: {ckpt_dir}")
+
+    def _save_best(self):
+        best_dir = os.path.join(self.config.output_dir, 'best')
+        os.makedirs(best_dir, exist_ok=True)
+        torch.save(self.model.state_dict(), os.path.join(best_dir, 'best.pt'))
+
+    def _save_final(self):
+        final_dir = os.path.join(self.config.output_dir, 'checkpoint-epoch-final')
+        os.makedirs(final_dir, exist_ok=True)
+        torch.save(self.model.state_dict(), os.path.join(final_dir, 'model.pt'))
+
+    def send_progress_update(self, epoch: int, loss: float, accuracy: float):
+        """向后端上报进度（与DirectTrainer保持一致）"""
+        try:
+            url = f"{self.config.api_base_url}/api/distillation/tasks/{self.config.task_id}/progress"
+            data = {
+                'currentEpoch': epoch,
+                'totalEpochs': self.config.epochs,
+                'loss': float(loss),
+                'accuracy': float(accuracy),
+                'status': 'RUNNING',
+            }
+            response = requests.post(url, json=data, timeout=5)
+            if response.status_code == 200:
+                print(f"✅ 进度已更新: Epoch {epoch}, Loss {loss:.4f}, mAP50 {accuracy:.2f}%")
+        except Exception as e:
+            print(f"⚠️ 发送进度失败: {e}")
+
+    @property
+    def best_accuracy(self) -> float:
+        return self.best_map
+
+
+# ==================== YOLOv8 检测训练器 ====================
+
+class YoloV8DetectionTrainer:
+    """YOLOv8 目标检测训练器（使用 ultralytics 原生 .train() API）
+
+    基于 yolov8.py 的训练逻辑改造而来。
+    数据集期望目录结构同 YoloDetectionDataset，外加可选的 data.yaml。
+    如未提供 data.yaml，会自动根据 dataset_id 生成一个。
+    """
+
+    # 支持的模型大小 → 预训练权重
+    YOLO_WEIGHTS = {
+        'n': 'yolov8n.pt',
+        's': 'yolov8s.pt',
+        'm': 'yolov8m.pt',
+        'l': 'yolov8l.pt',
+        'x': 'yolov8x.pt',
+        'yolov8n': 'yolov8n.pt',
+        'yolov8s': 'yolov8s.pt',
+        'yolov8m': 'yolov8m.pt',
+        'yolov8l': 'yolov8l.pt',
+        'yolov8x': 'yolov8x.pt',
+    }
+
+    def __init__(self, config: TrainingConfig):
+        self.config = config
+
+        if not YOLO_AVAILABLE:
+            raise ImportError("YOLOv8未安装，请运行: pip install ultralytics")
+
+        print("\n" + "=" * 60)
+        print("初始化 YOLOv8 目标检测训练器")
+        print("=" * 60)
+
+        weights = self.YOLO_WEIGHTS.get(config.student_model_size, 'yolov8s.pt')
+        # 允许 student_path 覆盖（用于加载用户的预训练权重）
+        if getattr(config, 'student_path', None):
+            student_path = config.student_path
+            if student_path and os.path.exists(student_path):
+                weights = student_path
+                print(f"使用用户提供的权重: {weights}")
+
+        print(f"加载 YOLOv8 预训练权重: {weights}")
+        self.model = YOLO(weights)
+        self.best_map = 0.0
+
+    def _resolve_data_yaml(self) -> str:
+        """查找或自动生成 data.yaml"""
+        dataset_dir = Path(self.config.datasets_root) / self.config.dataset_id
+        data_yaml_path = dataset_dir / "data.yaml"
+
+        if data_yaml_path.exists():
+            print(f"✅ 使用现有 data.yaml: {data_yaml_path}")
+            return str(data_yaml_path)
+
+        print(f"⚠️ 未找到 data.yaml，自动生成于: {data_yaml_path}")
+
+        try:
+            import yaml
+        except ImportError:
+            raise ImportError("生成 data.yaml 需要 PyYAML: pip install pyyaml")
+
+        data_config = {
+            'path': str(dataset_dir.resolve()),
+            'train': 'images/train',
+            'val': 'images/val',
+            'nc': self.config.num_classes,
+            'names': [f'class_{i}' for i in range(self.config.num_classes)],
+        }
+
+        dataset_dir.mkdir(parents=True, exist_ok=True)
+        with open(data_yaml_path, 'w', encoding='utf-8') as f:
+            yaml.safe_dump(data_config, f, default_flow_style=False, allow_unicode=True)
+
+        print(f"✅ 已生成 data.yaml (nc={self.config.num_classes})")
+        return str(data_yaml_path)
+
+    def train(self):
+        """执行 YOLOv8 原生训练流程"""
+        data_yaml = self._resolve_data_yaml()
+
+        # YOLOv8 device: 0 表示cuda:0，否则 'cpu'
+        device = 0 if torch.cuda.is_available() else 'cpu'
+
+        # ultralytics 会在 project/name 目录下生成 weights/best.pt
+        run_name = f"yolov8_{self.config.task_id}"
+
+        print(f"\n🚀 启动 YOLOv8 训练...")
+        print(f"   - data: {data_yaml}")
+        print(f"   - epochs: {self.config.epochs}")
+        print(f"   - imgsz: {self.config.image_size}")
+        print(f"   - batch: {self.config.batch_size}")
+        print(f"   - device: {device}")
+        print(f"   - output: {self.config.output_dir}/{run_name}")
+
+        results = self.model.train(
+            data=data_yaml,
+            epochs=self.config.epochs,
+            imgsz=self.config.image_size,
+            batch=self.config.batch_size,
+            device=device,
+            project=self.config.output_dir,
+            name=run_name,
+            save=True,
+            plots=True,
+            exist_ok=True,
+            lr0=self.config.learning_rate,
+            weight_decay=self.config.weight_decay,
+        )
+
+        # 从 results 中提取最佳 mAP50
+        try:
+            self.best_map = float(results.box.map50) * 100.0
+            map5095 = float(results.box.map) * 100.0
+            print(f"\n📊 最终指标: mAP50={self.best_map:.2f}%, mAP50-95={map5095:.2f}%")
+        except Exception as e:
+            print(f"⚠️ 无法从训练结果提取mAP: {e}")
+            self.best_map = 0.0
+
+        # 汇报训练完成的进度
+        self.send_progress_update(self.config.epochs, 0.0, self.best_map)
+
+        # 复制 best.pt 到标准的 best/ 目录（便于后续推理脚本定位）
+        run_dir = Path(self.config.output_dir) / run_name / 'weights'
+        best_pt = run_dir / 'best.pt'
+        if best_pt.exists():
+            standard_best_dir = Path(self.config.output_dir) / 'best'
+            standard_best_dir.mkdir(parents=True, exist_ok=True)
+            import shutil
+            shutil.copy(str(best_pt), str(standard_best_dir / 'best.pt'))
+            print(f"✅ 已将 best.pt 复制到: {standard_best_dir}/best.pt")
+
+    def send_progress_update(self, epoch: int, loss: float, accuracy: float):
+        """向后端上报进度（YOLOv8原生训练不支持逐epoch回调，只在结束时上报一次）"""
+        try:
+            url = f"{self.config.api_base_url}/api/distillation/tasks/{self.config.task_id}/progress"
+            data = {
+                'currentEpoch': epoch,
+                'totalEpochs': self.config.epochs,
+                'loss': float(loss),
+                'accuracy': float(accuracy),
+                'status': 'RUNNING',
+            }
+            response = requests.post(url, json=data, timeout=5)
+            if response.status_code == 200:
+                print(f"✅ 进度已更新: mAP50 {accuracy:.2f}%")
+        except Exception as e:
+            print(f"⚠️ 发送进度失败: {e}")
+
+    @property
+    def best_accuracy(self) -> float:
+        return self.best_map
+
+
 # ==================== 训练器 ====================
 
 class DirectTrainer:
@@ -702,6 +1207,131 @@ def parse_args():
     return parser.parse_args()
 
 
+def _report_completion(config: TrainingConfig, accuracy: float, model_path: str):
+    """通知后端任务完成"""
+    try:
+        url = f"{config.api_base_url}/api/distillation/tasks/{config.task_id}/complete"
+        data = {
+            'status': 'COMPLETED',
+            'accuracy': float(accuracy),
+            'modelPath': model_path,
+        }
+        requests.post(url, json=data, timeout=5)
+    except Exception as e:
+        print(f"⚠️ 更新任务状态失败: {e}")
+
+
+def _report_failure(config: TrainingConfig, error: Exception):
+    """通知后端任务失败"""
+    try:
+        url = f"{config.api_base_url}/api/distillation/tasks/{config.task_id}/fail"
+        data = {'errorMessage': str(error)}
+        requests.post(url, json=data, timeout=5)
+    except Exception:
+        pass
+
+
+def _run_classification_training(config: TrainingConfig):
+    """分类任务训练流程（原有 DirectTrainer 逻辑）"""
+    train_dataset_path = os.path.join(config.datasets_root, config.dataset_id, "train")
+    val_dataset_path = os.path.join(config.datasets_root, config.val_dataset_id, "val")
+
+    print(f"\n📂 数据集路径:")
+    print(f"   - 训练集: {train_dataset_path}")
+    print(f"   - 验证集: {val_dataset_path}")
+
+    train_dataset = MultiTaskDataset(
+        train_dataset_path,
+        config.task_type,
+        config.image_size,
+        config.num_classes,
+        mode='train',
+    )
+
+    val_dataset = MultiTaskDataset(
+        val_dataset_path,
+        config.task_type,
+        config.image_size,
+        config.num_classes,
+        mode='val',
+    )
+
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=config.batch_size,
+        shuffle=True,
+        num_workers=4,
+    )
+
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=config.batch_size,
+        shuffle=False,
+        num_workers=4,
+    )
+
+    trainer = DirectTrainer(config)
+    trainer.train(train_loader, val_loader)
+
+    final_dir = os.path.join(config.output_dir, 'checkpoint-epoch-final')
+    _report_completion(config, trainer.best_accuracy, final_dir)
+
+
+def _run_detection_training(config: TrainingConfig):
+    """目标检测训练流程"""
+    print("\n" + "=" * 60)
+    print(f"目标检测训练: {config.student_model_type} - {config.student_model_size}")
+    print("=" * 60)
+
+    model_type = (config.student_model_type or '').lower()
+
+    if model_type == 'yolov8':
+        # YOLOv8 使用 ultralytics 原生训练（自己管理数据加载器）
+        trainer = YoloV8DetectionTrainer(config)
+        trainer.train()
+        best_path = os.path.join(config.output_dir, 'best', 'best.pt')
+        _report_completion(config, trainer.best_accuracy, best_path)
+
+    elif model_type == 'resnet':
+        # Faster R-CNN 使用我们自己的 YoloDetectionDataset
+        dataset_dir = os.path.join(config.datasets_root, config.dataset_id)
+        val_dataset_dir = os.path.join(config.datasets_root, config.val_dataset_id)
+
+        print(f"\n📂 检测数据根目录:")
+        print(f"   - 训练集: {dataset_dir}/images/train")
+        print(f"   - 验证集: {val_dataset_dir}/images/val")
+
+        train_set = YoloDetectionDataset(dataset_dir, split='train')
+        val_set = YoloDetectionDataset(val_dataset_dir, split='val')
+
+        train_loader = DataLoader(
+            train_set,
+            batch_size=config.batch_size,
+            shuffle=True,
+            collate_fn=detection_collate_fn,
+            num_workers=4,
+        )
+        val_loader = DataLoader(
+            val_set,
+            batch_size=1,
+            shuffle=False,
+            collate_fn=detection_collate_fn,
+            num_workers=4,
+        )
+
+        trainer = FasterRCNNDetectionTrainer(config)
+        trainer.train(train_loader, val_loader, val_set)
+
+        best_path = os.path.join(config.output_dir, 'best', 'best.pt')
+        _report_completion(config, trainer.best_accuracy, best_path)
+
+    else:
+        raise ValueError(
+            f"目标检测任务暂不支持的模型类型: {config.student_model_type}. "
+            f"当前支持: yolov8, resnet"
+        )
+
+
 def main():
     """主函数"""
     # 解析参数
@@ -713,6 +1343,7 @@ def main():
     print("=" * 60)
     print(f"任务ID: {config.task_id}")
     print(f"学生模型: {config.student_model_type} - {config.student_model_size}")
+    print(f"任务类型: {config.task_type}")
     print(f"数据集: {config.dataset_id}")
     print(f"训练轮数: {config.epochs}")
     print(f"批次大小: {config.batch_size}")
@@ -723,78 +1354,23 @@ def main():
     # 创建输出目录
     os.makedirs(config.output_dir, exist_ok=True)
 
-    # 构建数据集路径
-    train_dataset_path = os.path.join(config.datasets_root, config.dataset_id, "train")
-    val_dataset_path = os.path.join(config.datasets_root, config.val_dataset_id, "val")
+    # 根据任务类型分发到对应的训练流程
+    task_type = (config.task_type or 'classification').lower()
 
-    print(f"\n📂 数据集路径:")
-    print(f"   - 训练集: {train_dataset_path}")
-    print(f"   - 验证集: {val_dataset_path}")
-
-    # 加载数据集
-    train_dataset = MultiTaskDataset(
-        train_dataset_path,
-        config.task_type,
-        config.image_size,
-        config.num_classes,
-        mode='train'
-    )
-
-    val_dataset = MultiTaskDataset(
-        val_dataset_path,
-        config.task_type,
-        config.image_size,
-        config.num_classes,
-        mode='val'
-    )
-
-    # 创建数据加载器
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=config.batch_size,
-        shuffle=True,
-        num_workers=4
-    )
-
-    val_loader = DataLoader(
-        val_dataset,
-        batch_size=config.batch_size,
-        shuffle=False,
-        num_workers=4
-    )
-
-    # 创建训练器
-    trainer = DirectTrainer(config)
-
-    # 开始训练
     try:
-        trainer.train(train_loader, val_loader)
-
-        # 训练完成，更新任务状态
-        try:
-            url = f"{config.api_base_url}/api/distillation/tasks/{config.task_id}/complete"
-            data = {
-                'status': 'COMPLETED',
-                'accuracy': trainer.best_accuracy,
-                'modelPath': os.path.join(config.output_dir, 'checkpoint-epoch-final')
-            }
-            requests.post(url, json=data, timeout=5)
-        except Exception as e:
-            print(f"⚠️ 更新任务状态失败: {e}")
+        if task_type == 'detection':
+            _run_detection_training(config)
+        elif task_type in ('classification', 'segmentation'):
+            # 分割暂时复用分类流程（UNet classifier head）
+            _run_classification_training(config)
+        else:
+            raise ValueError(f"不支持的任务类型: {config.task_type}")
 
     except Exception as e:
         print(f"\n❌ 训练失败: {e}")
         import traceback
         traceback.print_exc()
-
-        # 更新任务状态为失败
-        try:
-            url = f"{config.api_base_url}/api/distillation/tasks/{config.task_id}/fail"
-            data = {'errorMessage': str(e)}
-            requests.post(url, json=data, timeout=5)
-        except:
-            pass
-
+        _report_failure(config, e)
         sys.exit(1)
 
 

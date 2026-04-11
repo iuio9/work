@@ -18,6 +18,10 @@ torchvision>=0.15.0
 # YOLOv8（Ultralytics）
 ultralytics>=8.0.0
 
+# 目标检测数据加载和 mAP 评估
+opencv-python>=4.8.0
+pycocotools>=2.0.7
+
 # ========== 数据处理 ==========
 numpy>=1.24.0
 pandas>=2.0.0
