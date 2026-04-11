@@ -17,11 +17,17 @@ import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.File;
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -45,6 +51,73 @@ public class ModelDistillationController {
 
     @Autowired
     private TrainingInferenceService trainingInferenceService;
+
+    /**
+     * 数据集存放根目录（由 application-distillation.yml 中的 distillation.datasets.root 配置）
+     * 示例：D:/pythonProject2/datasets
+     * 根目录下每个子文件夹视为一个可用数据集，其文件夹名即为 datasetId。
+     */
+    @Value("${distillation.datasets.root}")
+    private String datasetsRoot;
+
+    // ========== 数据集发现 ==========
+
+    @GetMapping("/datasets")
+    @ApiOperation("扫描数据集根目录，返回可用数据集列表（供前端创建任务时选择）")
+    public Result<?> listDatasets() {
+        try {
+            List<Map<String, Object>> items = new ArrayList<>();
+
+            if (datasetsRoot == null || datasetsRoot.isEmpty()) {
+                return Result.ok(items).message("未配置 distillation.datasets.root");
+            }
+
+            File root = new File(datasetsRoot);
+            if (!root.exists() || !root.isDirectory()) {
+                return Result.ok(items).message("数据集根目录不存在: " + datasetsRoot);
+            }
+
+            File[] children = root.listFiles(File::isDirectory);
+            if (children == null || children.length == 0) {
+                return Result.ok(items);
+            }
+
+            // 按文件夹名字排序，输出稳定
+            Arrays.sort(children, Comparator.comparing(File::getName));
+
+            for (File dir : children) {
+                Map<String, Object> item = new HashMap<>();
+                item.put("value", dir.getName());        // 对应 taskForm.datasetId
+                item.put("label", dir.getName());        // 前端显示文本
+                item.put("type", detectDatasetType(dir));// yolo / classification / unknown
+                item.put("path", dir.getAbsolutePath()); // 可选：调试用
+                items.add(item);
+            }
+
+            return Result.ok(items);
+        } catch (Exception e) {
+            return Result.fail(null).message("扫描数据集失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 通过检查目录结构推断数据集类型：
+     *   - yolo          : 存在 images/train 子目录（或 data.yaml）
+     *   - classification: 存在 train/ 子目录（每类一个子文件夹的经典分类结构）
+     *   - unknown       : 其他
+     */
+    private String detectDatasetType(File dir) {
+        File imagesTrain = new File(dir, "images" + File.separator + "train");
+        File dataYaml = new File(dir, "data.yaml");
+        if (imagesTrain.isDirectory() || dataYaml.isFile()) {
+            return "yolo";
+        }
+        File train = new File(dir, "train");
+        if (train.isDirectory()) {
+            return "classification";
+        }
+        return "unknown";
+    }
 
     // ========== 训练任务管理 ==========
 

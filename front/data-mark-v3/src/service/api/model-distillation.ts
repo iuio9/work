@@ -8,6 +8,21 @@ export function fetchDistillationTasks() {
   });
 }
 
+/** 扫描后端 datasets.root 目录，返回可用数据集列表（供创建任务时下拉选择） */
+export function fetchDatasetList() {
+  return request<
+    Array<{
+      label: string;
+      value: string;
+      type: 'yolo' | 'classification' | 'unknown';
+      path?: string;
+    }>
+  >({
+    url: '/model-distillation/datasets',
+    method: 'get'
+  });
+}
+
 /** 获取已完成的训练任务（用于自动标注） */
 export function fetchCompletedDistillationModels(params?: {
   minAccuracy?: number;

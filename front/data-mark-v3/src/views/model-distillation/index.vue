@@ -975,6 +975,7 @@ import * as echarts from 'echarts';
 import {
   createDistillationTask,
   fetchDistillationTasks,
+  fetchDatasetList,
   startDistillationTask,
   stopDistillationTask,
   deleteDistillationTask,
@@ -1171,10 +1172,33 @@ const distillLossOptions = [
   { label: '交叉熵', value: 'cross_entropy' }
 ];
 
-// 数据集选项（示例）
-const datasetOptions = [
-  { label: 'CIFAR-10图像分类数据集', value: 'cifar10' }
-];
+// 数据集选项（从后端 /model-distillation/datasets 动态加载）
+// 扫描 application-distillation.yml 中 distillation.datasets.root 下的子目录，
+// 每个子目录即为一个可用数据集，目录名同时作为 datasetId。
+const datasetOptions = ref<
+  Array<{ label: string; value: string; type?: string; path?: string }>
+>([]);
+
+async function refreshDatasetOptions() {
+  try {
+    const { data } = await fetchDatasetList();
+    if (Array.isArray(data)) {
+      datasetOptions.value = data.map((d: any) => ({
+        // 在 label 上带一个类型标签，便于用户区分 YOLO/分类数据集
+        label: d.type && d.type !== 'unknown' ? `${d.label} (${d.type})` : d.label,
+        value: d.value,
+        type: d.type,
+        path: d.path
+      }));
+    } else {
+      datasetOptions.value = [];
+    }
+  } catch (e) {
+    console.error('加载数据集列表失败:', e);
+    datasetOptions.value = [];
+    message.error('加载数据集列表失败，请检查后端服务与 datasets.root 配置');
+  }
+}
 
 // 学习率调度器
 const lrSchedulerOptions = [
@@ -2674,6 +2698,7 @@ async function handleDeleteInference(row: any) {
 onMounted(() => {
   refreshTasks();
   refreshLoraPresets();
+  refreshDatasetOptions();
 
   // 模拟统计数据
   taskStats.value = {
