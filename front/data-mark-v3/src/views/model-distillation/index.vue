@@ -674,6 +674,7 @@
           <n-select
             v-model:value="taskForm.datasetId"
             :options="datasetOptions"
+            :render-label="renderDatasetOption"
             placeholder="选择训练数据集"
           />
         </n-form-item>
@@ -682,6 +683,7 @@
           <n-select
             v-model:value="taskForm.valDatasetId"
             :options="datasetOptions"
+            :render-label="renderDatasetOption"
             placeholder="选择验证数据集"
           />
         </n-form-item>
@@ -1175,8 +1177,16 @@ const distillLossOptions = [
 // 数据集选项（从后端 /model-distillation/datasets 动态加载）
 // 扫描 application-distillation.yml 中 distillation.datasets.root 下的子目录，
 // 每个子目录即为一个可用数据集，目录名同时作为 datasetId。
+// 可在数据集目录下放一个 meta.json 自定义 label / description / type：
+//   { "label": "输电线路巡检", "description": "...", "type": "yolo" }
 const datasetOptions = ref<
-  Array<{ label: string; value: string; type?: string; path?: string }>
+  Array<{
+    label: string;
+    value: string;
+    type?: string;
+    path?: string;
+    description?: string;
+  }>
 >([]);
 
 async function refreshDatasetOptions() {
@@ -1185,10 +1195,12 @@ async function refreshDatasetOptions() {
     if (Array.isArray(data)) {
       datasetOptions.value = data.map((d: any) => ({
         // 在 label 上带一个类型标签，便于用户区分 YOLO/分类数据集
+        // 如果 meta.json 提供了 label，后端已经用 meta.label 替换过 d.label
         label: d.type && d.type !== 'unknown' ? `${d.label} (${d.type})` : d.label,
         value: d.value,
         type: d.type,
-        path: d.path
+        path: d.path,
+        description: d.description
       }));
     } else {
       datasetOptions.value = [];
@@ -1198,6 +1210,24 @@ async function refreshDatasetOptions() {
     datasetOptions.value = [];
     message.error('加载数据集列表失败，请检查后端服务与 datasets.root 配置');
   }
+}
+
+// 数据集下拉的自定义渲染：第一行显示 label（含类型），第二行显示 description（如果有）
+function renderDatasetOption(option: any) {
+  const children: any[] = [h('div', { style: 'line-height: 1.2' }, option.label)];
+  if (option.description) {
+    children.push(
+      h(
+        'div',
+        {
+          style:
+            'font-size: 12px; color: var(--n-menu-item-text-color, #888); margin-top: 2px; line-height: 1.2'
+        },
+        option.description
+      )
+    );
+  }
+  return h('div', { style: 'padding: 2px 0' }, children);
 }
 
 // 学习率调度器

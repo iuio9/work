@@ -14,8 +14,10 @@ export function fetchDatasetList() {
     Array<{
       label: string;
       value: string;
-      type: 'yolo' | 'classification' | 'unknown';
+      type: 'yolo' | 'classification' | 'unknown' | string;
       path?: string;
+      /** 来自数据集目录下可选的 meta.json */
+      description?: string;
     }>
   >({
     url: '/model-distillation/datasets',

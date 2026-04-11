@@ -1,6 +1,7 @@
 package com.qczy.distillation.controller;
 
 import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
 import com.qczy.common.result.Result;
 import com.qczy.distillation.model.dto.CreateTaskRequestDTO;
 import com.qczy.distillation.model.dto.TrainingConfigDTO;
@@ -21,6 +22,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.File;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -86,11 +89,37 @@ public class ModelDistillationController {
             Arrays.sort(children, Comparator.comparing(File::getName));
 
             for (File dir : children) {
+                // value 始终是目录名（即 datasetId），label/type/description 允许
+                // 被数据集目录下的 meta.json 覆盖
+                String dirName = dir.getName();
+                String label = dirName;
+                String type = detectDatasetType(dir);
+                String description = null;
+
+                JSONObject meta = readDatasetMeta(dir);
+                if (meta != null) {
+                    String metaLabel = meta.getString("label");
+                    if (metaLabel != null && !metaLabel.isEmpty()) {
+                        label = metaLabel;
+                    }
+                    String metaType = meta.getString("type");
+                    if (metaType != null && !metaType.isEmpty()) {
+                        type = metaType;
+                    }
+                    String metaDesc = meta.getString("description");
+                    if (metaDesc != null && !metaDesc.isEmpty()) {
+                        description = metaDesc;
+                    }
+                }
+
                 Map<String, Object> item = new HashMap<>();
-                item.put("value", dir.getName());        // 对应 taskForm.datasetId
-                item.put("label", dir.getName());        // 前端显示文本
-                item.put("type", detectDatasetType(dir));// yolo / classification / unknown
+                item.put("value", dirName);              // 对应 taskForm.datasetId
+                item.put("label", label);                // 前端显示文本（meta.json 可覆盖）
+                item.put("type", type);                  // yolo / classification / unknown（meta.json 可覆盖）
                 item.put("path", dir.getAbsolutePath()); // 可选：调试用
+                if (description != null) {
+                    item.put("description", description);
+                }
                 items.add(item);
             }
 
@@ -117,6 +146,40 @@ public class ModelDistillationController {
             return "classification";
         }
         return "unknown";
+    }
+
+    /**
+     * 读取数据集目录下可选的 meta.json 元数据文件。
+     *
+     * meta.json 示例：
+     * <pre>
+     * {
+     *   "label": "输电线路巡检数据集",
+     *   "description": "电网输电线路巡检图像，包含绝缘子/杆塔等目标",
+     *   "type": "yolo"
+     * }
+     * </pre>
+     *
+     * 字段都是可选：
+     *   - label:       覆盖下拉框显示名称
+     *   - description: 数据集描述（前端可用作 tooltip）
+     *   - type:        覆盖自动推断的类型
+     *
+     * 如果文件不存在或解析失败，返回 null，由调用方 fallback 到默认行为。
+     */
+    private JSONObject readDatasetMeta(File dir) {
+        File metaFile = new File(dir, "meta.json");
+        if (!metaFile.isFile()) {
+            return null;
+        }
+        try {
+            String content = new String(Files.readAllBytes(metaFile.toPath()), StandardCharsets.UTF_8);
+            return JSON.parseObject(content);
+        } catch (Exception e) {
+            // 文件损坏或非法 JSON 时不影响整个列表的返回
+            System.err.println("⚠ 解析 meta.json 失败: " + metaFile.getAbsolutePath() + " - " + e.getMessage());
+            return null;
+        }
     }
 
     // ========== 训练任务管理 ==========
