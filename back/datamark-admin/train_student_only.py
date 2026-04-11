@@ -435,15 +435,21 @@ class YoloDetectionDataset(Dataset):
           images/val/*.jpg
           labels/train/*.txt  (YOLO格式: cls_id xc yc w h 归一化)
           labels/val/*.txt
+
+    参数：
+        label_offset: 类别ID偏移量。torchvision 检测模型约定 0=background，
+                     因此需要 label_offset=1；HuggingFace YOLOS 等模型使用
+                     0-indexed 类别，此时传 label_offset=0。
     """
 
-    def __init__(self, data_root: str, split: str = 'train'):
+    def __init__(self, data_root: str, split: str = 'train', label_offset: int = 1):
         if not CV2_AVAILABLE:
             raise ImportError("目标检测数据集需要 opencv-python，请运行: pip install opencv-python")
 
         self.data_root = Path(data_root)
         self.img_dir = self.data_root / "images" / split
         self.label_dir = self.data_root / "labels" / split
+        self.label_offset = label_offset
 
         if not self.img_dir.exists():
             raise FileNotFoundError(f"图像目录不存在: {self.img_dir}")
@@ -484,8 +490,9 @@ class YoloDetectionDataset(Dataset):
                     x2 = (xc + bw / 2) * w
                     y2 = (yc + bh / 2) * h
                     boxes.append([x1, y1, x2, y2])
-                    # torchvision 检测模型约定 0 = background，所以标签 +1
-                    labels.append(int(cid) + 1)
+                    # label_offset=1: torchvision (0=background)
+                    # label_offset=0: HuggingFace YOLOS
+                    labels.append(int(cid) + self.label_offset)
 
         if len(boxes) == 0:
             boxes = torch.zeros((0, 4), dtype=torch.float32)
@@ -498,6 +505,7 @@ class YoloDetectionDataset(Dataset):
             "boxes": boxes,
             "labels": labels,
             "image_id": torch.tensor([idx]),
+            "orig_size": torch.tensor([h, w]),
         }
 
         img_tensor = torch.from_numpy(img).permute(2, 0, 1).float() / 255.0
@@ -912,6 +920,697 @@ class YoloV8DetectionTrainer:
         return self.best_map
 
 
+# ==================== ViT (YOLOS) 检测训练器 ====================
+
+class _YolosDatasetWrapper(Dataset):
+    """将 YoloDetectionDataset 转换为 HuggingFace YOLOS 可以消费的格式"""
+
+    def __init__(self, yolo_dataset: 'YoloDetectionDataset', image_processor):
+        self.yolo_dataset = yolo_dataset
+        self.processor = image_processor
+
+    def __len__(self):
+        return len(self.yolo_dataset)
+
+    def __getitem__(self, idx):
+        # YoloDetectionDataset 返回 (C,H,W) float tensor 和 dict target
+        img_tensor, target = self.yolo_dataset[idx]
+
+        # Tensor (C,H,W, float [0,1]) → PIL Image
+        img_np = (img_tensor.permute(1, 2, 0).cpu().numpy() * 255.0).astype(np.uint8)
+        img_pil = Image.fromarray(img_np)
+        w, h = img_pil.size
+
+        # 把 xyxy 转成 COCO 的 xywh（像素坐标）
+        annotations = []
+        boxes_list = target["boxes"].tolist()
+        labels_list = target["labels"].tolist()
+        for box, label in zip(boxes_list, labels_list):
+            x1, y1, x2, y2 = box
+            bw = max(x2 - x1, 0.0)
+            bh = max(y2 - y1, 0.0)
+            annotations.append({
+                "bbox": [x1, y1, bw, bh],
+                "category_id": int(label),  # 已经是 0-indexed（label_offset=0）
+                "area": float(bw * bh),
+                "iscrowd": 0,
+            })
+
+        coco_target = {
+            "image_id": int(idx),
+            "annotations": annotations,
+        }
+
+        encoding = self.processor(
+            images=img_pil,
+            annotations=coco_target,
+            return_tensors="pt",
+        )
+
+        pixel_values = encoding["pixel_values"].squeeze(0)
+        labels = encoding["labels"][0]
+
+        return pixel_values, labels, (h, w)
+
+
+def yolos_collate_fn(batch):
+    """HF YOLOS 专用 collate：pixel_values 做 padding，labels 保持 list"""
+    pixel_values = [b[0] for b in batch]
+    labels = [b[1] for b in batch]
+    orig_sizes = [b[2] for b in batch]
+
+    # 同一 batch 里图像可能尺寸不同，使用最大尺寸 padding
+    max_h = max(p.shape[1] for p in pixel_values)
+    max_w = max(p.shape[2] for p in pixel_values)
+    padded = torch.zeros(len(pixel_values), 3, max_h, max_w, dtype=pixel_values[0].dtype)
+    pixel_mask = torch.zeros(len(pixel_values), max_h, max_w, dtype=torch.long)
+    for i, p in enumerate(pixel_values):
+        c, ph, pw = p.shape
+        padded[i, :, :ph, :pw] = p
+        pixel_mask[i, :ph, :pw] = 1
+
+    return {
+        "pixel_values": padded,
+        "pixel_mask": pixel_mask,
+        "labels": labels,
+        "orig_sizes": orig_sizes,
+    }
+
+
+class YolosViTDetectionTrainer:
+    """基于 HuggingFace YOLOS 的 Vision Transformer 目标检测训练器
+
+    YOLOS (You Only Look at One Sequence) 是纯 ViT 主干的检测模型，
+    使用 DETR 风格的 set-prediction 训练。
+
+    参考：https://huggingface.co/hustvl
+    """
+
+    VIT_VARIANTS = {
+        'tiny': 'hustvl/yolos-tiny',
+        'small': 'hustvl/yolos-small',
+        'base': 'hustvl/yolos-base',
+        'vit-tiny': 'hustvl/yolos-tiny',
+        'vit-small': 'hustvl/yolos-small',
+        'vit-base': 'hustvl/yolos-base',
+    }
+
+    def __init__(self, config: TrainingConfig):
+        self.config = config
+
+        print("\n" + "=" * 60)
+        print("初始化 ViT (YOLOS) 目标检测训练器")
+        print("=" * 60)
+
+        try:
+            from transformers import YolosImageProcessor, YolosForObjectDetection
+        except ImportError as e:
+            raise ImportError(
+                "ViT 检测训练器需要 transformers 库，请运行: pip install transformers"
+            ) from e
+
+        model_id = self.VIT_VARIANTS.get(config.student_model_size, 'hustvl/yolos-small')
+        print(f"加载 YOLOS 预训练权重: {model_id}")
+
+        self.processor = YolosImageProcessor.from_pretrained(model_id)
+        # num_labels 不包含 background；id2label/label2id 后续通过外部 API 管理
+        id2label = {i: f"class_{i}" for i in range(config.num_classes)}
+        label2id = {v: k for k, v in id2label.items()}
+
+        self.model = YolosForObjectDetection.from_pretrained(
+            model_id,
+            num_labels=config.num_classes,
+            id2label=id2label,
+            label2id=label2id,
+            ignore_mismatched_sizes=True,
+        )
+        self.model.to(config.device)
+
+        self.optimizer = torch.optim.AdamW(
+            self.model.parameters(),
+            lr=config.learning_rate,
+            weight_decay=config.weight_decay,
+        )
+
+        self.best_map = 0.0
+        self.train_losses = []
+
+    def train(self, train_loader: DataLoader, val_loader: DataLoader, val_yolo_dataset: 'YoloDetectionDataset'):
+        """完整训练流程"""
+        print("\n" + "=" * 60)
+        print("开始 YOLOS (ViT) 训练")
+        print("=" * 60)
+
+        # 评估器基于未偏移 (label_offset=0) 的 val_yolo_dataset 构建
+        # 注意：CocoEvaluator 默认类别从1开始，这里需要从0开始适配HF输出
+        evaluator = _build_coco_evaluator_zero_indexed(val_yolo_dataset, self.config.num_classes)
+
+        for epoch in range(1, self.config.epochs + 1):
+            self.model.train()
+            print(f"\n{'=' * 60}")
+            print(f"Epoch {epoch}/{self.config.epochs}")
+            print(f"{'=' * 60}")
+
+            epoch_loss = 0.0
+            n_batches = 0
+            pbar = tqdm(train_loader, desc=f"Epoch {epoch}")
+
+            for batch in pbar:
+                pixel_values = batch["pixel_values"].to(self.config.device)
+                pixel_mask = batch["pixel_mask"].to(self.config.device)
+                labels = [
+                    {k: v.to(self.config.device) for k, v in t.items()}
+                    for t in batch["labels"]
+                ]
+
+                outputs = self.model(
+                    pixel_values=pixel_values,
+                    pixel_mask=pixel_mask,
+                    labels=labels,
+                )
+                loss = outputs.loss
+
+                self.optimizer.zero_grad()
+                loss.backward()
+
+                if self.config.max_grad_norm > 0:
+                    torch.nn.utils.clip_grad_norm_(
+                        self.model.parameters(),
+                        self.config.max_grad_norm,
+                    )
+
+                self.optimizer.step()
+
+                epoch_loss += float(loss)
+                n_batches += 1
+                pbar.set_postfix(loss=float(loss))
+
+            avg_loss = epoch_loss / max(n_batches, 1)
+            self.train_losses.append(avg_loss)
+
+            # ========== 验证 ==========
+            map50, map5095 = self._evaluate(val_loader, evaluator)
+
+            print(f"\n📊 Epoch {epoch}: loss={avg_loss:.4f}, mAP50={map50:.2f}%, mAP50-95={map5095:.2f}%")
+
+            if self.config.auto_save_checkpoint and epoch % self.config.checkpoint_interval == 0:
+                self._save_checkpoint(epoch)
+
+            if map5095 > self.best_map:
+                self.best_map = map5095
+                self._save_best()
+                print(f"🎉 新的最佳 mAP50-95: {map5095:.2f}%")
+
+            self.send_progress_update(epoch, avg_loss, map50)
+
+        self._save_final()
+        print("\n" + "=" * 60)
+        print("YOLOS (ViT) 训练完成!")
+        print(f"最佳 mAP50-95: {self.best_map:.2f}%")
+        print("=" * 60)
+
+    def _evaluate(self, val_loader: DataLoader, evaluator) -> Tuple[float, float]:
+        """运行验证，返回 (mAP50, mAP50-95)"""
+        self.model.eval()
+
+        # 收集 COCO 格式的预测结果
+        coco_results = []
+
+        with torch.no_grad():
+            for batch in tqdm(val_loader, desc="验证中"):
+                pixel_values = batch["pixel_values"].to(self.config.device)
+                pixel_mask = batch["pixel_mask"].to(self.config.device)
+                orig_sizes = batch["orig_sizes"]
+                labels = batch["labels"]
+
+                outputs = self.model(pixel_values=pixel_values, pixel_mask=pixel_mask)
+
+                # target_sizes: HF 后处理要求的原始图像尺寸 (h, w)
+                target_sizes = torch.tensor([s for s in orig_sizes], device=self.config.device)
+                processed = self.processor.post_process_object_detection(
+                    outputs,
+                    threshold=0.05,
+                    target_sizes=target_sizes,
+                )
+
+                for i, result in enumerate(processed):
+                    img_id = int(labels[i]["image_id"].item()) if "image_id" in labels[i] else i
+                    for box, score, label in zip(result["boxes"], result["scores"], result["labels"]):
+                        x1, y1, x2, y2 = box.tolist()
+                        coco_results.append({
+                            "image_id": img_id,
+                            "category_id": int(label),
+                            "bbox": [x1, y1, x2 - x1, y2 - y1],
+                            "score": float(score),
+                        })
+
+        if len(coco_results) == 0:
+            print("⚠️ 验证集未产生任何检测结果，返回全零 mAP")
+            return 0.0, 0.0
+
+        coco_dt = evaluator.coco_gt.loadRes(coco_results)
+        coco_eval = COCOeval(evaluator.coco_gt, coco_dt, "bbox")
+        coco_eval.evaluate()
+        coco_eval.accumulate()
+        coco_eval.summarize()
+        stats = coco_eval.stats
+        return float(stats[1]) * 100.0, float(stats[0]) * 100.0
+
+    def _save_checkpoint(self, epoch: int):
+        ckpt_dir = os.path.join(self.config.output_dir, f'checkpoint-epoch-{epoch}')
+        os.makedirs(ckpt_dir, exist_ok=True)
+        self.model.save_pretrained(ckpt_dir)
+        self.processor.save_pretrained(ckpt_dir)
+        print(f"✅ 检查点已保存: {ckpt_dir}")
+
+    def _save_best(self):
+        best_dir = os.path.join(self.config.output_dir, 'best')
+        os.makedirs(best_dir, exist_ok=True)
+        self.model.save_pretrained(best_dir)
+        self.processor.save_pretrained(best_dir)
+
+    def _save_final(self):
+        final_dir = os.path.join(self.config.output_dir, 'checkpoint-epoch-final')
+        os.makedirs(final_dir, exist_ok=True)
+        self.model.save_pretrained(final_dir)
+        self.processor.save_pretrained(final_dir)
+
+    def send_progress_update(self, epoch: int, loss: float, accuracy: float):
+        try:
+            url = f"{self.config.api_base_url}/api/distillation/tasks/{self.config.task_id}/progress"
+            data = {
+                'currentEpoch': epoch,
+                'totalEpochs': self.config.epochs,
+                'loss': float(loss),
+                'accuracy': float(accuracy),
+                'status': 'RUNNING',
+            }
+            response = requests.post(url, json=data, timeout=5)
+            if response.status_code == 200:
+                print(f"✅ 进度已更新: Epoch {epoch}, Loss {loss:.4f}, mAP50 {accuracy:.2f}%")
+        except Exception as e:
+            print(f"⚠️ 发送进度失败: {e}")
+
+    @property
+    def best_accuracy(self) -> float:
+        return self.best_map
+
+
+def _build_coco_evaluator_zero_indexed(yolo_dataset: 'YoloDetectionDataset', num_classes: int) -> 'CocoEvaluator':
+    """为 0-indexed 类别构建 CocoEvaluator（适用于 HF 模型）"""
+    if not PYCOCOTOOLS_AVAILABLE:
+        raise ImportError("mAP 评估需要 pycocotools，请运行: pip install pycocotools")
+
+    # 创建一个符合 HF 约定的临时 evaluator，类别 0..num_classes-1
+    images_meta = []
+    anns = []
+    ann_id = 1
+
+    for i in range(len(yolo_dataset)):
+        _, target = yolo_dataset[i]
+        images_meta.append({"id": i})
+        for box, label in zip(target["boxes"], target["labels"]):
+            x1, y1, x2, y2 = box.tolist()
+            anns.append({
+                "id": ann_id,
+                "image_id": i,
+                "category_id": int(label),
+                "bbox": [x1, y1, x2 - x1, y2 - y1],
+                "area": (x2 - x1) * (y2 - y1),
+                "iscrowd": 0,
+            })
+            ann_id += 1
+
+    cats = [{"id": i} for i in range(num_classes)]
+    coco_dict = {
+        "images": images_meta,
+        "annotations": anns,
+        "categories": cats,
+    }
+
+    class _EvalHolder:
+        pass
+
+    holder = _EvalHolder()
+    holder.coco_gt = COCO()
+    holder.coco_gt.dataset = coco_dict
+    holder.coco_gt.createIndex()
+    return holder
+
+
+# ==================== UNet 检测训练器（语义分割→边界框） ====================
+
+class SegmentationFromBoxesDataset(Dataset):
+    """把 YOLO 框标注在线转换成矩形语义分割掩码
+
+    输出:
+        image:  (3, H, W) float tensor
+        mask:   (H, W)    long tensor，像素值 0..num_classes（0=background）
+
+    多框重叠时后写入者覆盖先写入者（不影响最终 mAP 数量级）。
+    """
+
+    def __init__(self, data_root: str, split: str, num_classes: int, image_size: int):
+        if not CV2_AVAILABLE:
+            raise ImportError("UNet 数据集需要 opencv-python")
+
+        self.data_root = Path(data_root)
+        self.img_dir = self.data_root / "images" / split
+        self.label_dir = self.data_root / "labels" / split
+        self.num_classes = num_classes
+        self.image_size = image_size
+
+        self.images = []
+        for ext in ('*.jpg', '*.jpeg', '*.png', '*.bmp'):
+            self.images.extend(list(self.img_dir.glob(ext)))
+        self.images = sorted(self.images)
+
+        print(f"✅ 分割数据集: {self.img_dir} (split={split}, 图像数={len(self.images)})")
+
+    def __len__(self):
+        return len(self.images)
+
+    def __getitem__(self, idx):
+        img_path = self.images[idx]
+        label_path = self.label_dir / f"{img_path.stem}.txt"
+
+        img = cv2.imread(str(img_path))
+        if img is None:
+            raise RuntimeError(f"无法读取图像: {img_path}")
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        h, w, _ = img.shape
+
+        # 在原图尺寸构建 mask，然后统一 resize
+        mask = np.zeros((h, w), dtype=np.int64)
+
+        if label_path.exists():
+            with open(label_path) as f:
+                for line in f:
+                    parts = line.strip().split()
+                    if len(parts) < 5:
+                        continue
+                    cid, xc, yc, bw, bh = map(float, parts[:5])
+                    x1 = int(max(0, (xc - bw / 2) * w))
+                    y1 = int(max(0, (yc - bh / 2) * h))
+                    x2 = int(min(w, (xc + bw / 2) * w))
+                    y2 = int(min(h, (yc + bh / 2) * h))
+                    # class_id + 1 是因为 0 留给背景
+                    mask[y1:y2, x1:x2] = int(cid) + 1
+
+        # 统一 resize
+        img_resized = cv2.resize(img, (self.image_size, self.image_size))
+        mask_resized = cv2.resize(mask.astype(np.int32), (self.image_size, self.image_size),
+                                  interpolation=cv2.INTER_NEAREST)
+
+        # ImageNet 标准化
+        img_tensor = torch.from_numpy(img_resized).permute(2, 0, 1).float() / 255.0
+        mean = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
+        std = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
+        img_tensor = (img_tensor - mean) / std
+
+        mask_tensor = torch.from_numpy(mask_resized).long()
+
+        return img_tensor, mask_tensor, (h, w), idx
+
+
+def seg_collate_fn(batch):
+    """SegmentationFromBoxesDataset 的 collate 函数
+
+    输出:
+        imgs:       (B, 3, H, W) float tensor
+        masks:      (B, H, W) long tensor
+        orig_sizes: List[Tuple[int, int]] — 每张图原始 (h, w)
+        ids:        List[int]
+    """
+    imgs = torch.stack([b[0] for b in batch], dim=0)
+    masks = torch.stack([b[1] for b in batch], dim=0)
+    orig_sizes = [b[2] for b in batch]
+    ids = [b[3] for b in batch]
+    return imgs, masks, orig_sizes, ids
+
+
+class UNetDetectionTrainer:
+    """基于 segmentation-models-pytorch UNet 的目标检测训练器
+
+    训练阶段：把框转成矩形 mask，当作语义分割训练
+    推理阶段：预测 mask → 按类别取连通分量 → 每个分量取外接矩形作为 bbox
+    评估指标：与 Faster R-CNN / YOLOv8 相同，使用 pycocotools 的 COCO mAP
+    """
+
+    # 前端 size → smp encoder 名
+    UNET_ENCODERS = {
+        'small': 'resnet18',
+        'medium': 'resnet34',
+        'large': 'resnet50',
+        'unet-small': 'resnet18',
+        'unet-medium': 'resnet34',
+        'unet-large': 'resnet50',
+    }
+
+    def __init__(self, config: TrainingConfig):
+        self.config = config
+
+        print("\n" + "=" * 60)
+        print("初始化 UNet 检测训练器（语义分割→边界框）")
+        print("=" * 60)
+
+        try:
+            import segmentation_models_pytorch as smp
+        except ImportError as e:
+            raise ImportError(
+                "UNet 检测训练器需要 segmentation-models-pytorch，请运行: "
+                "pip install segmentation-models-pytorch"
+            ) from e
+
+        encoder_name = self.UNET_ENCODERS.get(config.student_model_size, 'resnet34')
+        print(f"UNet encoder: {encoder_name}")
+
+        # +1 是为 background 类留位置
+        self.model = smp.Unet(
+            encoder_name=encoder_name,
+            encoder_weights='imagenet',
+            in_channels=3,
+            classes=config.num_classes + 1,
+        ).to(config.device)
+
+        self.criterion = nn.CrossEntropyLoss()
+        self.optimizer = torch.optim.AdamW(
+            self.model.parameters(),
+            lr=config.learning_rate,
+            weight_decay=config.weight_decay,
+        )
+
+        self.best_map = 0.0
+        self.train_losses = []
+
+    def train(self, train_loader: DataLoader, val_loader: DataLoader, val_yolo_dataset: 'YoloDetectionDataset'):
+        """训练入口"""
+        print("\n" + "=" * 60)
+        print("开始 UNet 检测训练")
+        print("=" * 60)
+
+        # 使用 0-indexed evaluator 匹配 mask→box 后的类别
+        evaluator = _build_coco_evaluator_zero_indexed(val_yolo_dataset, self.config.num_classes)
+
+        for epoch in range(1, self.config.epochs + 1):
+            self.model.train()
+            print(f"\n{'=' * 60}")
+            print(f"Epoch {epoch}/{self.config.epochs}")
+            print(f"{'=' * 60}")
+
+            epoch_loss = 0.0
+            n_batches = 0
+            pbar = tqdm(train_loader, desc=f"Epoch {epoch}")
+
+            for imgs, masks, _orig_sizes, _ids in pbar:
+                imgs = imgs.to(self.config.device)
+                masks = masks.to(self.config.device)
+
+                logits = self.model(imgs)  # (B, C+1, H, W)
+                loss = self.criterion(logits, masks)
+
+                self.optimizer.zero_grad()
+                loss.backward()
+                if self.config.max_grad_norm > 0:
+                    torch.nn.utils.clip_grad_norm_(
+                        self.model.parameters(), self.config.max_grad_norm
+                    )
+                self.optimizer.step()
+
+                epoch_loss += float(loss)
+                n_batches += 1
+                pbar.set_postfix(loss=float(loss))
+
+            avg_loss = epoch_loss / max(n_batches, 1)
+            self.train_losses.append(avg_loss)
+
+            # ========== 验证：mask → 连通分量 → bbox → mAP ==========
+            map50, map5095 = self._evaluate(val_loader, evaluator)
+
+            print(f"\n📊 Epoch {epoch}: loss={avg_loss:.4f}, mAP50={map50:.2f}%, mAP50-95={map5095:.2f}%")
+
+            if self.config.auto_save_checkpoint and epoch % self.config.checkpoint_interval == 0:
+                self._save_checkpoint(epoch)
+
+            if map5095 > self.best_map:
+                self.best_map = map5095
+                self._save_best()
+                print(f"🎉 新的最佳 mAP50-95: {map5095:.2f}%")
+
+            self.send_progress_update(epoch, avg_loss, map50)
+
+        self._save_final()
+        print("\n" + "=" * 60)
+        print("UNet 检测训练完成!")
+        print(f"最佳 mAP50-95: {self.best_map:.2f}%")
+        print("=" * 60)
+
+    def _evaluate(self, val_loader: DataLoader, evaluator) -> Tuple[float, float]:
+        """预测 mask → 连通分量 → bbox → COCO mAP"""
+        self.model.eval()
+        coco_results = []
+
+        with torch.no_grad():
+            for imgs, masks, orig_sizes, ids in tqdm(val_loader, desc="验证中"):
+                imgs = imgs.to(self.config.device)
+                logits = self.model(imgs)  # (B, C+1, H, W)
+                probs = F.softmax(logits, dim=1)
+                # 每个像素取概率最大的类
+                pred_classes = probs.argmax(dim=1).cpu().numpy()  # (B, H, W)
+                pred_probs = probs.cpu().numpy()  # (B, C+1, H, W)
+
+                # seg_collate_fn 输出:
+                #   orig_sizes: List[Tuple[int, int]] = [(h1, w1), (h2, w2), ...]
+                #   ids:        List[int]
+                for b in range(pred_classes.shape[0]):
+                    img_id = int(ids[b])
+                    orig_h = int(orig_sizes[b][0])
+                    orig_w = int(orig_sizes[b][1])
+
+                    mask_pred = pred_classes[b]  # (Hs, Ws)
+                    prob_pred = pred_probs[b]    # (C+1, Hs, Ws)
+
+                    # 对每个前景类提取连通分量
+                    detections = _mask_to_detections(
+                        mask_pred, prob_pred, self.config.num_classes,
+                        target_h=orig_h, target_w=orig_w
+                    )
+
+                    for det in detections:
+                        coco_results.append({
+                            "image_id": img_id,
+                            "category_id": det["category_id"],
+                            "bbox": det["bbox"],
+                            "score": det["score"],
+                        })
+
+        if len(coco_results) == 0:
+            print("⚠️ 验证集未产生任何检测结果，返回全零 mAP")
+            return 0.0, 0.0
+
+        coco_dt = evaluator.coco_gt.loadRes(coco_results)
+        coco_eval = COCOeval(evaluator.coco_gt, coco_dt, "bbox")
+        coco_eval.evaluate()
+        coco_eval.accumulate()
+        coco_eval.summarize()
+        stats = coco_eval.stats
+        return float(stats[1]) * 100.0, float(stats[0]) * 100.0
+
+    def _save_checkpoint(self, epoch: int):
+        ckpt_dir = os.path.join(self.config.output_dir, f'checkpoint-epoch-{epoch}')
+        os.makedirs(ckpt_dir, exist_ok=True)
+        torch.save(self.model.state_dict(), os.path.join(ckpt_dir, 'model.pt'))
+        info = {
+            'epoch': epoch,
+            'model_type': 'unet_smp',
+            'encoder': self.UNET_ENCODERS.get(self.config.student_model_size, 'resnet34'),
+            'num_classes': self.config.num_classes,
+            'best_map': self.best_map,
+        }
+        with open(os.path.join(ckpt_dir, 'training_info.json'), 'w') as f:
+            json.dump(info, f, indent=2)
+
+    def _save_best(self):
+        best_dir = os.path.join(self.config.output_dir, 'best')
+        os.makedirs(best_dir, exist_ok=True)
+        torch.save(self.model.state_dict(), os.path.join(best_dir, 'best.pt'))
+
+    def _save_final(self):
+        final_dir = os.path.join(self.config.output_dir, 'checkpoint-epoch-final')
+        os.makedirs(final_dir, exist_ok=True)
+        torch.save(self.model.state_dict(), os.path.join(final_dir, 'model.pt'))
+
+    def send_progress_update(self, epoch: int, loss: float, accuracy: float):
+        try:
+            url = f"{self.config.api_base_url}/api/distillation/tasks/{self.config.task_id}/progress"
+            data = {
+                'currentEpoch': epoch,
+                'totalEpochs': self.config.epochs,
+                'loss': float(loss),
+                'accuracy': float(accuracy),
+                'status': 'RUNNING',
+            }
+            response = requests.post(url, json=data, timeout=5)
+            if response.status_code == 200:
+                print(f"✅ 进度已更新: Epoch {epoch}, Loss {loss:.4f}, mAP50 {accuracy:.2f}%")
+        except Exception as e:
+            print(f"⚠️ 发送进度失败: {e}")
+
+    @property
+    def best_accuracy(self) -> float:
+        return self.best_map
+
+
+def _mask_to_detections(mask_pred: np.ndarray, prob_pred: np.ndarray,
+                       num_classes: int, target_h: int, target_w: int) -> List[Dict]:
+    """把 (H, W) 的类别预测 mask 转换成 detection list
+
+    对每个前景类做连通分量分析，每个分量的外接矩形即为一个 bbox，
+    score 取该分量内的平均类别概率。
+
+    返回的 bbox 坐标会 resize 回原图尺寸 (target_h, target_w)。
+    """
+    detections = []
+    pred_h, pred_w = mask_pred.shape
+
+    scale_x = target_w / float(pred_w)
+    scale_y = target_h / float(pred_h)
+
+    # category_id 是 0-indexed（和 _build_coco_evaluator_zero_indexed 对齐）
+    # mask 中的 0 是 background，1..num_classes 是前景（对应 category 0..num_classes-1）
+    for cls_mask_val in range(1, num_classes + 1):
+        binary = (mask_pred == cls_mask_val).astype(np.uint8)
+        if binary.sum() == 0:
+            continue
+
+        # 连通分量
+        num_labels, labels_img, stats, _ = cv2.connectedComponentsWithStats(binary, connectivity=8)
+
+        # stats: [x, y, w, h, area]
+        for comp_id in range(1, num_labels):  # 0 是背景
+            x, y, bw, bh, area = stats[comp_id]
+            if area < 10:  # 过滤太小的噪点
+                continue
+
+            # 计算该分量内的平均类别概率作为 score
+            comp_mask = (labels_img == comp_id)
+            score = float(prob_pred[cls_mask_val][comp_mask].mean())
+
+            # resize bbox 到原图
+            x1 = float(x) * scale_x
+            y1 = float(y) * scale_y
+            w = float(bw) * scale_x
+            h = float(bh) * scale_y
+
+            detections.append({
+                "category_id": int(cls_mask_val - 1),  # 转 0-indexed
+                "bbox": [x1, y1, w, h],
+                "score": score,
+            })
+
+    return detections
+
+
 # ==================== 训练器 ====================
 
 class DirectTrainer:
@@ -1301,8 +2000,8 @@ def _run_detection_training(config: TrainingConfig):
         print(f"   - 训练集: {dataset_dir}/images/train")
         print(f"   - 验证集: {val_dataset_dir}/images/val")
 
-        train_set = YoloDetectionDataset(dataset_dir, split='train')
-        val_set = YoloDetectionDataset(val_dataset_dir, split='val')
+        train_set = YoloDetectionDataset(dataset_dir, split='train', label_offset=1)
+        val_set = YoloDetectionDataset(val_dataset_dir, split='val', label_offset=1)
 
         train_loader = DataLoader(
             train_set,
@@ -1325,10 +2024,91 @@ def _run_detection_training(config: TrainingConfig):
         best_path = os.path.join(config.output_dir, 'best', 'best.pt')
         _report_completion(config, trainer.best_accuracy, best_path)
 
+    elif model_type in ('vit', 'yolos'):
+        # HuggingFace YOLOS (ViT) 目标检测
+        dataset_dir = os.path.join(config.datasets_root, config.dataset_id)
+        val_dataset_dir = os.path.join(config.datasets_root, config.val_dataset_id)
+
+        print(f"\n📂 检测数据根目录:")
+        print(f"   - 训练集: {dataset_dir}/images/train")
+        print(f"   - 验证集: {val_dataset_dir}/images/val")
+
+        # HF 模型使用 0-indexed 类别（无 background class）
+        train_yolo = YoloDetectionDataset(dataset_dir, split='train', label_offset=0)
+        val_yolo = YoloDetectionDataset(val_dataset_dir, split='val', label_offset=0)
+
+        # 先构建 trainer，因为需要拿 processor 来包装 dataset
+        trainer = YolosViTDetectionTrainer(config)
+
+        train_wrapped = _YolosDatasetWrapper(train_yolo, trainer.processor)
+        val_wrapped = _YolosDatasetWrapper(val_yolo, trainer.processor)
+
+        train_loader = DataLoader(
+            train_wrapped,
+            batch_size=config.batch_size,
+            shuffle=True,
+            collate_fn=yolos_collate_fn,
+            num_workers=4,
+        )
+        val_loader = DataLoader(
+            val_wrapped,
+            batch_size=1,
+            shuffle=False,
+            collate_fn=yolos_collate_fn,
+            num_workers=4,
+        )
+
+        trainer.train(train_loader, val_loader, val_yolo)
+
+        # YOLOS 模型用 save_pretrained，best 是一个目录
+        best_path = os.path.join(config.output_dir, 'best')
+        _report_completion(config, trainer.best_accuracy, best_path)
+
+    elif model_type == 'unet':
+        # UNet 语义分割 → 边界框
+        dataset_dir = os.path.join(config.datasets_root, config.dataset_id)
+        val_dataset_dir = os.path.join(config.datasets_root, config.val_dataset_id)
+
+        print(f"\n📂 检测数据根目录:")
+        print(f"   - 训练集: {dataset_dir}/images/train")
+        print(f"   - 验证集: {val_dataset_dir}/images/val")
+
+        train_set = SegmentationFromBoxesDataset(
+            dataset_dir, 'train', config.num_classes, config.image_size
+        )
+        val_set = SegmentationFromBoxesDataset(
+            val_dataset_dir, 'val', config.num_classes, config.image_size
+        )
+        # 评估用的 GT 数据集（0-indexed 匹配 _mask_to_detections）
+        val_yolo_for_eval = YoloDetectionDataset(
+            val_dataset_dir, split='val', label_offset=0
+        )
+
+        train_loader = DataLoader(
+            train_set,
+            batch_size=config.batch_size,
+            shuffle=True,
+            collate_fn=seg_collate_fn,
+            num_workers=4,
+        )
+        val_loader = DataLoader(
+            val_set,
+            batch_size=config.batch_size,
+            shuffle=False,
+            collate_fn=seg_collate_fn,
+            num_workers=4,
+        )
+
+        trainer = UNetDetectionTrainer(config)
+        trainer.train(train_loader, val_loader, val_yolo_for_eval)
+
+        best_path = os.path.join(config.output_dir, 'best', 'best.pt')
+        _report_completion(config, trainer.best_accuracy, best_path)
+
     else:
         raise ValueError(
             f"目标检测任务暂不支持的模型类型: {config.student_model_type}. "
-            f"当前支持: yolov8, resnet"
+            f"当前支持: yolov8, resnet, vit, unet"
         )
 
 
