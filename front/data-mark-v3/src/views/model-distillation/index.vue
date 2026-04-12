@@ -505,9 +505,11 @@
               <!-- LoRA 预设列表 -->
               <n-data-table
                 :columns="loraPresetColumns"
-                :data="loraPresets"
+                :data="normalizedLoraPresets"
                 :loading="loraPresetsLoading"
                 :bordered="false"
+                :pagination="loraPagination"
+                :row-key="(row) => row._rowKey"
               />
             </n-space>
           </div>
@@ -1395,6 +1397,20 @@ const taskPagination = {
   pageSize: 10
 };
 
+const normalizedLoraPresets = computed(() => {
+  if (!Array.isArray(loraPresets.value)) return [];
+  return loraPresets.value
+    .filter((p): p is Record<string, any> => p && typeof p === 'object')
+    .map((p, index) => ({
+      ...p,
+      _rowKey: p.id ?? p.presetName ?? `lora-${index}`
+    }));
+});
+
+const loraPagination = {
+  pageSize: 10
+};
+
 // 已训练模型筛选
 const filteredCompletedModels = computed(() => {
   let filtered = normalizedTasks.value.filter(task => task.status === 'COMPLETED' && task.accuracy && task.accuracy > 0);
@@ -1705,49 +1721,67 @@ const loraPresetColumns = [
   {
     title: '预设名称',
     key: 'presetName',
-    width: 200
+    width: 200,
+    render(row: any) {
+      return String(row.presetName ?? '-');
+    }
   },
   {
     title: 'Rank',
     key: 'loraRank',
-    width: 80
+    width: 80,
+    render(row: any) {
+      return String(row.loraRank ?? '-');
+    }
   },
   {
     title: 'Alpha',
     key: 'loraAlpha',
-    width: 80
+    width: 80,
+    render(row: any) {
+      return String(row.loraAlpha ?? '-');
+    }
   },
   {
     title: 'Dropout',
     key: 'loraDropout',
-    width: 100
+    width: 100,
+    render(row: any) {
+      return String(row.loraDropout ?? '-');
+    }
   },
   {
     title: '目标模块',
     key: 'targetModules',
     width: 300,
+    ellipsis: { tooltip: true },
     render(row: any) {
-      const mods = typeof row.targetModules === 'string'
-        ? row.targetModules
-        : (Array.isArray(row.targetModules) ? row.targetModules.join(', ') : '-');
-      return mods || '-';
+      if (typeof row.targetModules === 'string') return row.targetModules || '-';
+      if (Array.isArray(row.targetModules)) return row.targetModules.join(', ');
+      return '-';
     }
   },
   {
     title: '描述',
     key: 'presetDesc',
-    ellipsis: { tooltip: true }
+    ellipsis: { tooltip: true },
+    render(row: any) {
+      return String(row.presetDesc ?? '-');
+    }
   },
   {
     title: '创建时间',
     key: 'createTime',
-    width: 180
+    width: 180,
+    render(row: any) {
+      return formatDateTime(row.createTime);
+    }
   },
   {
     title: '操作',
     key: 'actions',
     width: 180,
-    fixed: 'right',
+    fixed: 'right' as const,
     render(row: any) {
       return h('div', { class: 'flex gap-8px justify-center' }, [
         h(
