@@ -1749,32 +1749,26 @@ const loraPresetColumns = [
     width: 180,
     fixed: 'right',
     render(row: any) {
-      return h(
-        NSpace,
-        {},
-        {
-          default: () => [
-            h(
-              NButton,
-              {
-                size: 'small',
-                type: 'primary',
-                onClick: () => handleLoadLoraPreset(row)
-              },
-              { default: () => '加载配置' }
-            ),
-            h(
-              NButton,
-              {
-                size: 'small',
-                type: 'error',
-                onClick: () => handleDeleteLoraPreset(row)
-              },
-              () => '删除'
-            )
-          ]
-        }
-      );
+      return h('div', { class: 'flex gap-8px justify-center' }, [
+        h(
+          NButton,
+          {
+            size: 'small',
+            type: 'primary',
+            onClick: () => handleLoadLoraPreset(row)
+          },
+          { default: () => '加载配置' }
+        ),
+        h(
+          NButton,
+          {
+            size: 'small',
+            type: 'error',
+            onClick: () => handleDeleteLoraPreset(row)
+          },
+          { default: () => '删除' }
+        )
+      ]);
     }
   }
 ];
@@ -1860,33 +1854,27 @@ const inferenceColumns = [
     width: 150,
     fixed: 'right',
     render(row: any) {
-      return h(
-        NSpace,
-        {},
-        {
-          default: () => [
-            h(
-              NButton,
-              {
-                size: 'small',
-                type: 'primary',
-                disabled: row.status === 'RUNNING',
-                onClick: () => handleViewInferenceResult(row)
-              },
-              { default: () => '查看结果' }
-            ),
-            h(
-              NButton,
-              {
-                size: 'small',
-                type: 'error',
-                onClick: () => handleDeleteInference(row)
-              },
-              { default: () => '删除' }
-            )
-          ]
-        }
-      );
+      return h('div', { class: 'flex gap-8px justify-center' }, [
+        h(
+          NButton,
+          {
+            size: 'small',
+            type: 'primary',
+            disabled: row.status === 'RUNNING',
+            onClick: () => handleViewInferenceResult(row)
+          },
+          { default: () => '查看结果' }
+        ),
+        h(
+          NButton,
+          {
+            size: 'small',
+            type: 'error',
+            onClick: () => handleDeleteInference(row)
+          },
+          { default: () => '删除' }
+        )
+      ]);
     }
   }
 ];
