@@ -943,6 +943,33 @@
       :task="selectedTaskForInference"
       @success="handleInferenceSuccess"
     />
+
+    <!-- 绑定外部模型权重对话框 -->
+    <n-modal
+      v-model:show="showBindModelDialog"
+      preset="dialog"
+      title="绑定外部模型权重"
+      positive-text="确认绑定"
+      negative-text="取消"
+      :loading="bindModelLoading"
+      @positive-click="handleConfirmBindModel"
+      style="width: 520px"
+    >
+      <div style="margin-bottom: 12px; color: #666; font-size: 13px; line-height: 1.6">
+        将本地已训练好的权重文件绑定到任务 <strong>{{ bindModelTask?.taskName }}</strong>（{{ bindModelTask?.taskId }}）。
+        绑定成功后任务状态将自动变为 <strong>COMPLETED</strong>，即可使用"用于标注"功能。
+      </div>
+      <n-form-item label="权重文件绝对路径" style="margin-bottom: 0">
+        <n-input
+          v-model:value="bindModelPath"
+          placeholder="如：D:/models/my_yolov8/best.pt 或 /data/models/best.pt"
+          clearable
+        />
+      </n-form-item>
+      <div style="margin-top: 8px; color: #999; font-size: 12px">
+        路径须填写后端服务器上的绝对路径，且文件必须存在。
+      </div>
+    </n-modal>
   </div>
 </template>
 
@@ -982,7 +1009,8 @@ import {
   stopDistillationTask,
   deleteDistillationTask,
   getAllInferenceTasks,
-  deleteInferenceTask
+  deleteInferenceTask,
+  bindExternalModel
 } from '@/service/api/model-distillation';
 import InferenceDialog from './components/InferenceDialog.vue';
 
@@ -1102,6 +1130,44 @@ let gpuChart: echarts.ECharts | null = null;
 let memoryChart: echarts.ECharts | null = null;
 
 // ==================== 已训练模型相关数据 ====================
+
+// ----- 绑定外部模型权重 -----
+const showBindModelDialog = ref(false);
+const bindModelTask = ref<any>(null);       // 当前要绑定的任务行
+const bindModelPath = ref('');              // 用户输入的本地权重路径
+const bindModelLoading = ref(false);
+
+function handleOpenBindModel(row: any) {
+  bindModelTask.value = row;
+  bindModelPath.value = row.modelPath || '';
+  showBindModelDialog.value = true;
+}
+
+async function handleConfirmBindModel() {
+  const path = bindModelPath.value.trim();
+  if (!path) {
+    message.warning('请输入模型权重文件的完整路径');
+    return;
+  }
+  const taskId = bindModelTask.value?.taskId;
+  if (!taskId) return;
+
+  bindModelLoading.value = true;
+  try {
+    const res = await bindExternalModel(taskId, path);
+    if (res.code === 200 || res.code === 0 || res.data !== undefined) {
+      message.success('绑定成功，任务状态已更新为 COMPLETED');
+      showBindModelDialog.value = false;
+      await refreshTasks();
+    } else {
+      message.error(res.message || '绑定失败');
+    }
+  } catch (e: any) {
+    message.error('绑定失败：' + (e?.message || '未知错误'));
+  } finally {
+    bindModelLoading.value = false;
+  }
+}
 
 // 已训练模型搜索条件
 const trainedModelsSearch = ref({
@@ -1443,7 +1509,7 @@ const trainedModelsColumns = [
   {
     title: '操作',
     key: 'actions',
-    width: 200,
+    width: 280,
     fixed: 'right',
     render(row: any) {
       return h('div', { class: 'flex gap-8px justify-center' }, [
@@ -1460,7 +1526,18 @@ const trainedModelsColumns = [
           NButton,
           {
             size: 'small',
+            type: 'default',
+            onClick: () => handleOpenBindModel(row)
+          },
+          { default: () => '绑定路径' }
+        ),
+        h(
+          NButton,
+          {
+            size: 'small',
             type: 'info',
+            disabled: (row.status || '').toUpperCase() !== 'COMPLETED',
+            title: (row.status || '').toUpperCase() !== 'COMPLETED' ? '任务未完成，请先绑定模型路径' : '',
             onClick: () => handleUseModelForAnnotation(row)
           },
           { default: () => '用于标注' }

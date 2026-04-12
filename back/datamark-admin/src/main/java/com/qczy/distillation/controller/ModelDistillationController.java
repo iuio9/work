@@ -456,6 +456,24 @@ public class ModelDistillationController {
         }
     }
 
+    @PatchMapping("/tasks/{taskId}/bind-external-model")
+    @ApiOperation("绑定外部模型权重：设置 model_path 并将任务状态置为 COMPLETED，使其可立即用于自动标注")
+    public Result<?> bindExternalModel(
+            @PathVariable String taskId,
+            @RequestParam String modelPath
+    ) {
+        try {
+            boolean success = trainingTaskService.bindExternalModel(taskId, modelPath);
+            if (success) {
+                return Result.ok(null).message("外部模型绑定成功，任务状态已更新为 COMPLETED");
+            } else {
+                return Result.fail(null).message("绑定失败，任务不存在或已删除");
+            }
+        } catch (Exception e) {
+            return Result.fail(null).message("绑定失败: " + e.getMessage());
+        }
+    }
+
     @PutMapping("/tasks/{taskId}/model-path")
     @ApiOperation("更新模型文件路径")
     public Result<?> updateModelPath(

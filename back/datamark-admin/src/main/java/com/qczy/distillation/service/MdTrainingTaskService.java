@@ -265,6 +265,28 @@ public class MdTrainingTaskService {
     }
 
     /**
+     * 绑定外部已训练模型权重到指定任务，并将任务状态置为 COMPLETED。
+     * 用于将本地离线训练好的权重文件（如 best.pt）关联到平台任务，
+     * 使其可以直接被推理（自动标注）功能使用。
+     *
+     * @param taskId    任务ID
+     * @param modelPath 权重文件的绝对路径（如 D:/models/best.pt）
+     * @return 是否成功
+     */
+    @Transactional
+    public boolean bindExternalModel(String taskId, String modelPath) {
+        if (!new java.io.File(modelPath).exists()) {
+            throw new RuntimeException("模型文件不存在: " + modelPath);
+        }
+        int result = trainingTaskMapper.bindExternalModel(taskId, modelPath);
+        if (result > 0) {
+            logger.info("Bound external model for task {}: path={}", taskId, modelPath);
+            return true;
+        }
+        return false;
+    }
+
+    /**
      * 删除训练任务
      * @param taskId 任务ID
      * @return 是否成功

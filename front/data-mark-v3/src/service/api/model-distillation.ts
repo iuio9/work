@@ -131,4 +131,17 @@ export function deleteInferenceTask(inferenceId: string) {
   });
 }
 
+/**
+ * 绑定外部模型权重到已有任务
+ * 将本地离线训练好的权重文件（如 best.pt）的绝对路径写入任务记录，
+ * 并将任务状态自动置为 COMPLETED，使其可以被"用于标注"功能使用。
+ */
+export function bindExternalModel(taskId: string, modelPath: string) {
+  return request<any>({
+    url: `/model-distillation/tasks/${taskId}/bind-external-model`,
+    method: 'patch',
+    params: { modelPath }
+  });
+}
+
 // Force module reload - timestamp: 2025-01-13T12:00:00Z

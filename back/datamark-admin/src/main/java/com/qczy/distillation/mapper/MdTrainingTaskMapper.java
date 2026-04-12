@@ -195,6 +195,15 @@ public interface MdTrainingTaskMapper extends BaseMapper<MdTrainingTaskEntity> {
                        @Param("modelUrl") String modelUrl);
 
     /**
+     * 绑定外部模型：同时更新 model_path 并将任务状态置为 COMPLETED，
+     * 使任务可立即被推理（自动标注）使用。
+     */
+    @Update("UPDATE md_training_task SET model_path = #{modelPath}, status = 'COMPLETED', " +
+            "update_time = NOW() WHERE task_id = #{taskId} AND del_flag = 0")
+    int bindExternalModel(@Param("taskId") String taskId,
+                          @Param("modelPath") String modelPath);
+
+    /**
      * 逻辑删除任务
      * @param taskId 任务ID
      * @return 更新行数
