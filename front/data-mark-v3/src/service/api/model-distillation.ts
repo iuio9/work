@@ -144,4 +144,63 @@ export function bindExternalModel(taskId: string, modelPath: string) {
   });
 }
 
-// Force module reload - timestamp: 2025-01-13T12:00:00Z
+// ========== 训练历史记录 ==========
+
+/** 获取任务完整训练历史（供图表展示） */
+export function fetchTaskHistory(taskId: string) {
+  return request<
+    Array<{
+      id: number;
+      taskId: string;
+      epoch: number;
+      trainLoss?: number;
+      trainAccuracy?: number;
+      valLoss?: number;
+      valAccuracy?: number;
+      distillLoss?: number;
+      hardLoss?: number;
+      softLoss?: number;
+      gpuUsage?: number;
+      memoryUsage?: number;
+      epochTime?: number;
+      recordTime?: string;
+    }>
+  >({
+    url: `/model-distillation/tasks/${taskId}/history`,
+    method: 'get'
+  });
+}
+
+// ========== LoRA 预设管理 ==========
+
+/** 获取所有 LoRA 预设 */
+export function fetchAllLoraPresets() {
+  return request<any>({
+    url: '/model-distillation/lora-presets',
+    method: 'get'
+  });
+}
+
+/** 创建 LoRA 预设 */
+export function createLoraPreset(data: {
+  presetName: string;
+  loraRank?: number;
+  loraAlpha?: number;
+  loraDropout?: number;
+  targetModules?: string;
+  presetDesc?: string;
+}) {
+  return request<any>({
+    url: '/model-distillation/lora-presets',
+    method: 'post',
+    data
+  });
+}
+
+/** 删除 LoRA 预设 */
+export function deleteLoraPreset(presetName: string) {
+  return request<any>({
+    url: `/model-distillation/lora-presets/${encodeURIComponent(presetName)}`,
+    method: 'delete'
+  });
+}

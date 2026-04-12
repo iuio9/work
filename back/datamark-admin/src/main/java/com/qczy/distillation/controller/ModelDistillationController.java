@@ -597,6 +597,21 @@ public class ModelDistillationController {
         }
     }
 
+    @DeleteMapping("/lora-presets/{presetName}")
+    @ApiOperation("删除LoRA预设（逻辑删除）")
+    public Result<?> deleteLoraPreset(@PathVariable String presetName) {
+        try {
+            boolean success = trainingTaskService.deleteLoraPreset(presetName);
+            if (success) {
+                return Result.ok(null).message("LoRA预设已删除");
+            } else {
+                return Result.fail(null).message("预设不存在");
+            }
+        } catch (Exception e) {
+            return Result.fail(null).message("删除LoRA预设失败: " + e.getMessage());
+        }
+    }
+
     // ========== 模型评估 ==========
 
     @GetMapping("/tasks/{taskId}/evaluations")

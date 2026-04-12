@@ -225,6 +225,15 @@ public class MdTrainingTaskService {
             trainingTaskMapper.updateBestAccuracy(taskId, accuracy);
         }
 
+        // 写入训练历史记录（供前端图表展示）
+        MdTrainingHistoryEntity history = new MdTrainingHistoryEntity();
+        history.setTaskId(taskId);
+        history.setEpoch(currentEpoch);
+        history.setTrainLoss(loss);
+        history.setTrainAccuracy(accuracy);
+        history.setRecordTime(LocalDateTime.now());
+        trainingHistoryMapper.insert(history);
+
         logger.info("Updated progress for task {}: epoch={}, accuracy={}, loss={}",
                    taskId, currentEpoch, accuracy, loss);
         return true;
@@ -360,6 +369,21 @@ public class MdTrainingTaskService {
      */
     public MdLoraPresetEntity getLoraPresetByName(String presetName) {
         return loraPresetMapper.selectByPresetName(presetName);
+    }
+
+    /**
+     * 删除LoRA预设（逻辑删除）
+     * @param presetName 预设名称
+     * @return 是否成功
+     */
+    @Transactional
+    public boolean deleteLoraPreset(String presetName) {
+        int result = loraPresetMapper.deleteByPresetName(presetName);
+        if (result > 0) {
+            logger.info("Deleted LoRA preset: {}", presetName);
+            return true;
+        }
+        return false;
     }
 
     /**

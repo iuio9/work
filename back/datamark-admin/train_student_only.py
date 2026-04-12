@@ -747,7 +747,7 @@ class FasterRCNNDetectionTrainer:
     def send_progress_update(self, epoch: int, loss: float, accuracy: float):
         """向后端上报进度（与DirectTrainer保持一致）"""
         try:
-            url = f"{self.config.api_base_url}/api/distillation/tasks/{self.config.task_id}/progress"
+            url = f"{self.config.api_base_url}/model-distillation/tasks/{self.config.task_id}/progress"
             data = {
                 'currentEpoch': epoch,
                 'totalEpochs': self.config.epochs,
@@ -755,7 +755,7 @@ class FasterRCNNDetectionTrainer:
                 'accuracy': float(accuracy),
                 'status': 'RUNNING',
             }
-            response = requests.post(url, json=data, timeout=5)
+            response = requests.put(url, params=data, timeout=5)
             if response.status_code == 200:
                 print(f"✅ 进度已更新: Epoch {epoch}, Loss {loss:.4f}, mAP50 {accuracy:.2f}%")
         except Exception as e:
@@ -909,7 +909,7 @@ class YoloV8DetectionTrainer:
     def send_progress_update(self, epoch: int, loss: float, accuracy: float):
         """向后端上报进度（YOLOv8原生训练不支持逐epoch回调，只在结束时上报一次）"""
         try:
-            url = f"{self.config.api_base_url}/api/distillation/tasks/{self.config.task_id}/progress"
+            url = f"{self.config.api_base_url}/model-distillation/tasks/{self.config.task_id}/progress"
             data = {
                 'currentEpoch': epoch,
                 'totalEpochs': self.config.epochs,
@@ -917,7 +917,7 @@ class YoloV8DetectionTrainer:
                 'accuracy': float(accuracy),
                 'status': 'RUNNING',
             }
-            response = requests.post(url, json=data, timeout=5)
+            response = requests.put(url, params=data, timeout=5)
             if response.status_code == 200:
                 print(f"✅ 进度已更新: mAP50 {accuracy:.2f}%")
         except Exception as e:
@@ -1205,7 +1205,7 @@ class YolosViTDetectionTrainer:
 
     def send_progress_update(self, epoch: int, loss: float, accuracy: float):
         try:
-            url = f"{self.config.api_base_url}/api/distillation/tasks/{self.config.task_id}/progress"
+            url = f"{self.config.api_base_url}/model-distillation/tasks/{self.config.task_id}/progress"
             data = {
                 'currentEpoch': epoch,
                 'totalEpochs': self.config.epochs,
@@ -1213,7 +1213,7 @@ class YolosViTDetectionTrainer:
                 'accuracy': float(accuracy),
                 'status': 'RUNNING',
             }
-            response = requests.post(url, json=data, timeout=5)
+            response = requests.put(url, params=data, timeout=5)
             if response.status_code == 200:
                 print(f"✅ 进度已更新: Epoch {epoch}, Loss {loss:.4f}, mAP50 {accuracy:.2f}%")
         except Exception as e:
@@ -1550,7 +1550,7 @@ class UNetDetectionTrainer:
 
     def send_progress_update(self, epoch: int, loss: float, accuracy: float):
         try:
-            url = f"{self.config.api_base_url}/api/distillation/tasks/{self.config.task_id}/progress"
+            url = f"{self.config.api_base_url}/model-distillation/tasks/{self.config.task_id}/progress"
             data = {
                 'currentEpoch': epoch,
                 'totalEpochs': self.config.epochs,
@@ -1558,7 +1558,7 @@ class UNetDetectionTrainer:
                 'accuracy': float(accuracy),
                 'status': 'RUNNING',
             }
-            response = requests.post(url, json=data, timeout=5)
+            response = requests.put(url, params=data, timeout=5)
             if response.status_code == 200:
                 print(f"✅ 进度已更新: Epoch {epoch}, Loss {loss:.4f}, mAP50 {accuracy:.2f}%")
         except Exception as e:
@@ -1801,7 +1801,7 @@ class DirectTrainer:
     def send_progress_update(self, epoch: int, loss: float, accuracy: float):
         """发送训练进度到后端API"""
         try:
-            url = f"{self.config.api_base_url}/api/distillation/tasks/{self.config.task_id}/progress"
+            url = f"{self.config.api_base_url}/model-distillation/tasks/{self.config.task_id}/progress"
             data = {
                 'currentEpoch': epoch,
                 'totalEpochs': self.config.epochs,
@@ -1810,7 +1810,7 @@ class DirectTrainer:
                 'status': 'RUNNING'
             }
 
-            response = requests.post(url, json=data, timeout=5)
+            response = requests.put(url, params=data, timeout=5)
             if response.status_code == 200:
                 print(f"✅ 进度已更新: Epoch {epoch}, Loss {loss:.4f}, Acc {accuracy:.2f}%")
             else:
@@ -1917,7 +1917,7 @@ def parse_args():
 def _report_completion(config: TrainingConfig, accuracy: float, model_path: str):
     """通知后端任务完成"""
     try:
-        url = f"{config.api_base_url}/api/distillation/tasks/{config.task_id}/complete"
+        url = f"{config.api_base_url}/model-distillation/tasks/{config.task_id}/complete"
         data = {
             'status': 'COMPLETED',
             'accuracy': float(accuracy),
@@ -1931,9 +1931,9 @@ def _report_completion(config: TrainingConfig, accuracy: float, model_path: str)
 def _report_failure(config: TrainingConfig, error: Exception):
     """通知后端任务失败"""
     try:
-        url = f"{config.api_base_url}/api/distillation/tasks/{config.task_id}/fail"
+        url = f"{config.api_base_url}/model-distillation/tasks/{config.task_id}/error"
         data = {'errorMessage': str(error)}
-        requests.post(url, json=data, timeout=5)
+        requests.put(url, params=data, timeout=5)
     except Exception:
         pass
 

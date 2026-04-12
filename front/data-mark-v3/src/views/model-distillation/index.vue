@@ -1010,7 +1010,11 @@ import {
   deleteDistillationTask,
   getAllInferenceTasks,
   deleteInferenceTask,
-  bindExternalModel
+  bindExternalModel,
+  fetchTaskHistory,
+  fetchAllLoraPresets,
+  createLoraPreset,
+  deleteLoraPreset
 } from '@/service/api/model-distillation';
 import InferenceDialog from './components/InferenceDialog.vue';
 
@@ -1705,17 +1709,17 @@ const loraPresetColumns = [
   },
   {
     title: 'Rank',
-    key: 'rank',
+    key: 'loraRank',
     width: 80
   },
   {
     title: 'Alpha',
-    key: 'alpha',
+    key: 'loraAlpha',
     width: 80
   },
   {
     title: 'Dropout',
-    key: 'dropout',
+    key: 'loraDropout',
     width: 100
   },
   {
@@ -1723,12 +1727,15 @@ const loraPresetColumns = [
     key: 'targetModules',
     width: 300,
     render(row: any) {
-      return row.targetModules.join(', ');
+      const mods = typeof row.targetModules === 'string'
+        ? row.targetModules
+        : (Array.isArray(row.targetModules) ? row.targetModules.join(', ') : '-');
+      return mods || '-';
     }
   },
   {
     title: '描述',
-    key: 'description',
+    key: 'presetDesc',
     ellipsis: { tooltip: true }
   },
   {
@@ -2057,6 +2064,23 @@ async function refreshTasks() {
       tasks.value = res.data || [];
       console.log('训练任务列表:', tasks.value);
 
+      // 从真实任务数据计算统计数据
+      const allTasks = tasks.value as any[];
+      const completedTasks = allTasks.filter(t => t.status === 'COMPLETED');
+      const accuracyValues = completedTasks
+        .map(t => parseFloat(t.accuracy))
+        .filter(v => !isNaN(v) && v > 0);
+      const avgAccuracy = accuracyValues.length > 0
+        ? Math.round((accuracyValues.reduce((a, b) => a + b, 0) / accuracyValues.length) * 10) / 10
+        : 0;
+      taskStats.value = {
+        total: allTasks.length,
+        running: allTasks.filter(t => t.status === 'RUNNING').length,
+        completed: completedTasks.length,
+        avgAccuracy,
+        gpuUsage: 0
+      };
+
       // 如果当前有选中的任务，需要同步更新 selectedTask
       if (selectedTask.value && selectedTask.value.taskId) {
         const updatedTask = tasks.value.find(t => t.taskId === selectedTask.value.taskId);
@@ -2317,50 +2341,64 @@ async function handleDeleteTask(task: any) {
 }
 
 // 刷新 LoRA 预设
-function refreshLoraPresets() {
+async function refreshLoraPresets() {
   loraPresetsLoading.value = true;
-  // TODO: 调用后端API
-  setTimeout(() => {
-    loraPresets.value = [
-      {
-        presetName: '标准配置',
-        rank: 16,
-        alpha: 32,
-        dropout: 0.05,
-        targetModules: ['q_proj', 'v_proj'],
-        description: '适用于大多数场景的标准 LoRA 配置',
-        createTime: '2025-11-18 15:00:00'
-      }
-    ];
+  try {
+    const res = await fetchAllLoraPresets();
+    if (res.code === 200 || res.code === 0 || (res.data !== undefined && !res.error)) {
+      loraPresets.value = res.data || [];
+    } else {
+      message.error(res.message || '获取 LoRA 预设失败');
+    }
+  } catch (error: any) {
+    message.error('获取 LoRA 预设失败：' + (error?.message || '未知错误'));
+  } finally {
     loraPresetsLoading.value = false;
-  }, 500);
+  }
 }
 
 // 保存 LoRA 预设
-function handleSaveLoraPreset() {
+async function handleSaveLoraPreset() {
   if (!loraPresetName.value) {
     message.error('请输入预设名称');
     return;
   }
   savingLoraPreset.value = true;
-  // TODO: 调用后端API
-  setTimeout(() => {
-    message.success('LoRA 预设保存成功');
-    showSaveLoraPresetModal.value = false;
+  try {
+    const res = await createLoraPreset({
+      presetName: loraPresetName.value,
+      loraRank: loraConfig.value.rank,
+      loraAlpha: loraConfig.value.alpha,
+      loraDropout: loraConfig.value.dropout,
+      targetModules: loraConfig.value.targetModules.join(','),
+      presetDesc: loraPresetDesc.value || undefined
+    });
+    if (res.code === 200 || res.code === 0 || (res.data !== undefined && !res.error)) {
+      message.success('LoRA 预设保存成功');
+      showSaveLoraPresetModal.value = false;
+      loraPresetName.value = '';
+      loraPresetDesc.value = '';
+      refreshLoraPresets();
+    } else {
+      message.error(res.message || '保存 LoRA 预设失败');
+    }
+  } catch (error: any) {
+    message.error('保存 LoRA 预设失败：' + (error?.message || '未知错误'));
+  } finally {
     savingLoraPreset.value = false;
-    loraPresetName.value = '';
-    loraPresetDesc.value = '';
-    refreshLoraPresets();
-  }, 1000);
+  }
 }
 
 // 加载 LoRA 预设
 function handleLoadLoraPreset(preset: any) {
+  const modules = typeof preset.targetModules === 'string'
+    ? preset.targetModules.split(',').map((s: string) => s.trim()).filter(Boolean)
+    : (Array.isArray(preset.targetModules) ? preset.targetModules : []);
   loraConfig.value = {
-    rank: preset.rank,
-    alpha: preset.alpha,
-    dropout: preset.dropout,
-    targetModules: preset.targetModules,
+    rank: preset.loraRank ?? preset.rank ?? 16,
+    alpha: preset.loraAlpha ?? preset.alpha ?? 32,
+    dropout: preset.loraDropout ?? preset.dropout ?? 0.05,
+    targetModules: modules,
     layers: 'all',
     biasTrain: 'none'
   };
@@ -2375,194 +2413,181 @@ function handleDeleteLoraPreset(preset: any) {
     content: `确定要删除预设 "${preset.presetName}" 吗？`,
     positiveText: '删除',
     negativeText: '取消',
-    onPositiveClick: () => {
-      message.success('预设已删除');
-      refreshLoraPresets();
+    onPositiveClick: async () => {
+      try {
+        const res = await deleteLoraPreset(preset.presetName);
+        if (res.code === 200 || res.code === 0 || (res.data !== undefined && !res.error)) {
+          message.success('预设已删除');
+        } else {
+          message.error(res.message || '删除预设失败');
+        }
+      } catch (error: any) {
+        message.error('删除预设失败：' + (error?.message || '未知错误'));
+      } finally {
+        refreshLoraPresets();
+      }
     }
   });
 }
 
-// 初始化图表
-function initCharts() {
+// 初始化图表（先加载历史数据再渲染）
+async function initCharts() {
   if (activeTab.value !== 'training-monitor' || !selectedTask.value) return;
+  let history: any[] = [];
+  try {
+    const res = await fetchTaskHistory(selectedTask.value.taskId);
+    if (res.code === 200 || res.code === 0 || (res.data !== undefined && !res.error)) {
+      history = (res.data || []) as any[];
+    }
+  } catch (e) {
+    console.warn('加载训练历史失败，图表将显示空数据:', e);
+  }
   setTimeout(() => {
     try {
-      initLossChart();
-      initAccuracyChart();
-      initGpuChart();
-      initMemoryChart();
+      initLossChart(history);
+      initAccuracyChart(history);
+      initGpuChart(history);
+      initMemoryChart(history);
     } catch (error) {
       console.error('图表初始化失败:', error);
-      // 即使图表初始化失败，也不影响其他功能
     }
   }, 100);
 }
 
 // 初始化损失曲线图表
-function initLossChart() {
+function initLossChart(history: any[]) {
   if (!lossChartRef.value) {
     console.warn('lossChartRef 未找到，跳过初始化');
     return;
   }
-
   try {
-    // 如果已存在实例，先销毁
-    if (lossChart) {
-      lossChart.dispose();
-    }
+    if (lossChart) lossChart.dispose();
     lossChart = echarts.init(lossChartRef.value);
   } catch (error) {
     console.error('损失曲线图表初始化失败:', error);
     return;
   }
 
+  const epochs = history.map(h => h.epoch);
+  const trainLossData = history.map(h => h.trainLoss != null ? parseFloat(h.trainLoss) : null);
+  const hardLossData = history.map(h => h.hardLoss != null ? parseFloat(h.hardLoss) : null);
+  const softLossData = history.map(h => h.softLoss != null ? parseFloat(h.softLoss) : null);
+
   const option = {
-    title: {
-      text: '训练损失曲线',
-      left: 'center'
-    },
-    tooltip: {
-      trigger: 'axis'
-    },
-    legend: {
-      data: ['总损失', '硬标签损失', '软标签损失 (蒸馏)'],
-      bottom: 10
-    },
-    grid: {
-      left: '3%',
-      right: '4%',
-      bottom: '15%',
-      containLabel: true
-    },
+    title: { text: '训练损失曲线', left: 'center' },
+    tooltip: { trigger: 'axis' },
+    legend: { data: ['训练损失', '硬标签损失', '软标签损失 (蒸馏)'], bottom: 10 },
+    grid: { left: '3%', right: '4%', bottom: '15%', containLabel: true },
     xAxis: {
       type: 'category',
       boundaryGap: false,
-      data: Array.from({ length: 100 }, (_, i) => i + 1),
-      name: 'Steps'
+      data: epochs.length > 0 ? epochs : [],
+      name: 'Epoch'
     },
-    yAxis: {
-      type: 'value',
-      name: 'Loss'
-    },
+    yAxis: { type: 'value', name: 'Loss' },
     series: [
       {
-        name: '总损失',
+        name: '训练损失',
         type: 'line',
-        data: Array.from({ length: 100 }, () => Math.random() * 2 + 1),
+        data: trainLossData,
         smooth: true,
-        lineStyle: { width: 2 }
+        lineStyle: { width: 2 },
+        connectNulls: false
       },
       {
         name: '硬标签损失',
         type: 'line',
-        data: Array.from({ length: 100 }, () => Math.random() * 1.5 + 0.5),
+        data: hardLossData,
         smooth: true,
-        lineStyle: { width: 2 }
+        lineStyle: { width: 2 },
+        connectNulls: false
       },
       {
         name: '软标签损失 (蒸馏)',
         type: 'line',
-        data: Array.from({ length: 100 }, () => Math.random() * 1.2 + 0.3),
+        data: softLossData,
         smooth: true,
-        lineStyle: { width: 2 }
+        lineStyle: { width: 2 },
+        connectNulls: false
       }
     ]
   };
-
   lossChart.setOption(option);
 }
 
 // 初始化准确率图表
-function initAccuracyChart() {
+function initAccuracyChart(history: any[]) {
   if (!accuracyChartRef.value) {
     console.warn('accuracyChartRef 未找到，跳过初始化');
     return;
   }
-
   try {
-    if (accuracyChart) {
-      accuracyChart.dispose();
-    }
+    if (accuracyChart) accuracyChart.dispose();
     accuracyChart = echarts.init(accuracyChartRef.value);
   } catch (error) {
     console.error('准确率曲线图表初始化失败:', error);
     return;
   }
 
+  const epochs = history.map(h => h.epoch);
+  const trainAccData = history.map(h => h.trainAccuracy != null ? parseFloat(h.trainAccuracy) : null);
+  const valAccData = history.map(h => h.valAccuracy != null ? parseFloat(h.valAccuracy) : null);
+
   const option = {
-    title: {
-      text: '教师-学生模型准确率对比',
-      left: 'center'
-    },
-    tooltip: {
-      trigger: 'axis'
-    },
-    legend: {
-      data: ['教师模型', '学生模型'],
-      bottom: 10
-    },
-    grid: {
-      left: '3%',
-      right: '4%',
-      bottom: '15%',
-      containLabel: true
-    },
+    title: { text: '模型准确率曲线', left: 'center' },
+    tooltip: { trigger: 'axis' },
+    legend: { data: ['训练准确率', '验证准确率'], bottom: 10 },
+    grid: { left: '3%', right: '4%', bottom: '15%', containLabel: true },
     xAxis: {
       type: 'category',
       boundaryGap: false,
-      data: Array.from({ length: 10 }, (_, i) => `Epoch ${i + 1}`),
+      data: epochs.length > 0 ? epochs : [],
       name: 'Epoch'
     },
-    yAxis: {
-      type: 'value',
-      name: 'Accuracy (%)',
-      min: 0,
-      max: 100
-    },
+    yAxis: { type: 'value', name: 'Accuracy (%)', min: 0, max: 100 },
     series: [
       {
-        name: '教师模型',
+        name: '训练准确率',
         type: 'line',
-        data: [65, 72, 78, 82, 85, 87, 89, 90, 91, 92],
+        data: trainAccData,
         smooth: true,
         lineStyle: { width: 3, color: '#409EFF' },
-        itemStyle: { color: '#409EFF' }
+        itemStyle: { color: '#409EFF' },
+        connectNulls: false
       },
       {
-        name: '学生模型',
+        name: '验证准确率',
         type: 'line',
-        data: [45, 58, 65, 71, 76, 80, 83, 85, 87, 88],
+        data: valAccData,
         smooth: true,
         lineStyle: { width: 3, color: '#67C23A' },
-        itemStyle: { color: '#67C23A' }
+        itemStyle: { color: '#67C23A' },
+        connectNulls: false
       }
     ]
   };
-
   accuracyChart.setOption(option);
 }
 
 // 初始化 GPU 使用率图表
-function initGpuChart() {
+function initGpuChart(history: any[]) {
   if (!gpuChartRef.value) {
     console.warn('gpuChartRef 未找到，跳过初始化');
     return;
   }
-
   try {
-    if (gpuChart) {
-      gpuChart.dispose();
-    }
+    if (gpuChart) gpuChart.dispose();
     gpuChart = echarts.init(gpuChartRef.value);
   } catch (error) {
     console.error('GPU使用率图表初始化失败:', error);
     return;
   }
 
+  const lastEntry = history.length > 0 ? history[history.length - 1] : null;
+  const gpuValue = lastEntry?.gpuUsage != null ? parseFloat(lastEntry.gpuUsage) : 0;
+
   const option = {
-    tooltip: {
-      formatter: '{b}: {c}%'
-    },
+    tooltip: { formatter: '{b}: {c}%' },
     series: [
       {
         type: 'gauge',
@@ -2574,11 +2599,7 @@ function initGpuChart() {
         axisLine: {
           lineStyle: {
             width: 6,
-            color: [
-              [0.3, '#67C23A'],
-              [0.7, '#E6A23C'],
-              [1, '#F56C6C']
-            ]
+            color: [[0.3, '#67C23A'], [0.7, '#E6A23C'], [1, '#F56C6C']]
           }
         },
         pointer: {
@@ -2589,40 +2610,39 @@ function initGpuChart() {
         },
         detail: {
           valueAnimation: true,
-          formatter: '{value}%',
+          formatter: history.length > 0 ? '{value}%' : '暂无数据',
           color: 'auto',
           fontSize: 24,
           offsetCenter: [0, '80%']
         },
-        data: [{ value: 78, name: 'GPU 使用率' }]
+        data: [{ value: gpuValue, name: 'GPU 使用率' }]
       }
     ]
   };
-
   gpuChart.setOption(option);
 }
 
 // 初始化显存使用图表
-function initMemoryChart() {
+function initMemoryChart(history: any[]) {
   if (!memoryChartRef.value) {
     console.warn('memoryChartRef 未找到，跳过初始化');
     return;
   }
-
   try {
-    if (memoryChart) {
-      memoryChart.dispose();
-    }
+    if (memoryChart) memoryChart.dispose();
     memoryChart = echarts.init(memoryChartRef.value);
   } catch (error) {
     console.error('内存使用率图表初始化失败:', error);
     return;
   }
 
+  const lastEntry = history.length > 0 ? history[history.length - 1] : null;
+  // memoryUsage 单位为 MB，转换为 GB
+  const memValueMB = lastEntry?.memoryUsage != null ? parseFloat(lastEntry.memoryUsage) : 0;
+  const memValueGB = Math.round(memValueMB / 1024 * 10) / 10;
+
   const option = {
-    tooltip: {
-      formatter: '{b}: {c} GB'
-    },
+    tooltip: { formatter: '{b}: {c} GB' },
     series: [
       {
         type: 'gauge',
@@ -2634,11 +2654,7 @@ function initMemoryChart() {
         axisLine: {
           lineStyle: {
             width: 6,
-            color: [
-              [0.5, '#67C23A'],
-              [0.8, '#E6A23C'],
-              [1, '#F56C6C']
-            ]
+            color: [[0.5, '#67C23A'], [0.8, '#E6A23C'], [1, '#F56C6C']]
           }
         },
         pointer: {
@@ -2649,16 +2665,15 @@ function initMemoryChart() {
         },
         detail: {
           valueAnimation: true,
-          formatter: '{value} GB',
+          formatter: history.length > 0 ? '{value} GB' : '暂无数据',
           color: 'auto',
           fontSize: 24,
           offsetCenter: [0, '80%']
         },
-        data: [{ value: 18.5, name: '显存使用' }]
+        data: [{ value: memValueGB, name: '显存使用' }]
       }
     ]
   };
-
   memoryChart.setOption(option);
 }
 
@@ -2806,15 +2821,6 @@ onMounted(() => {
   refreshTasks();
   refreshLoraPresets();
   refreshDatasetOptions();
-
-  // 模拟统计数据
-  taskStats.value = {
-    total: 15,
-    running: 3,
-    completed: 10,
-    avgAccuracy: 85.6,
-    gpuUsage: 78
-  };
 });
 
 onUnmounted(() => {
