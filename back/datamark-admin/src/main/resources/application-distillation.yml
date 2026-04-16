@@ -23,7 +23,7 @@ distillation:
     path: D:/pythonProject2/train_student_only.py
 
   inference-script:
-    path: D:/pythonProject2/inference_qwen_vl_distilled_models.py
+    path: D:/pythonProject2/inference_qwen_vl_distilled_models.py   # 算法服务器上的路径
 
   # ── 回调地址（存储服务器对外 IP，供训练脚本上报进度）────────────────
   # 算法服务器上的 Python 脚本用这个地址回调进度

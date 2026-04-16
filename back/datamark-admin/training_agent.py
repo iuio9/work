@@ -45,6 +45,11 @@ app.add_middleware(
 # taskId -> subprocess.Popen
 _running: Dict[str, subprocess.Popen] = {}
 
+# inferenceId -> subprocess.Popen
+_running_infer: Dict[str, subprocess.Popen] = {}
+# inferenceId -> exit code (populated after process ends)
+_infer_exit: Dict[str, Optional[int]] = {}
+
 
 # ──────────────────────────────────────────────
 # 请求体模型（与 Spring Boot buildPythonCommand 中的参数对应）
@@ -58,6 +63,13 @@ class TrainRequest(BaseModel):
     args: Dict[str, str]          # 其余所有命令行参数 key→value
     # 无 value 的开关参数（如 --fp16）放在 flags 列表里
     flags: list[str] = []
+
+
+class InferRequest(BaseModel):
+    inferenceId: str
+    scriptPath: str               # 推理脚本绝对路径
+    pythonPath: str = "python3"
+    args: Dict[str, str]          # key→value 命令行参数（不含 "--"）
 
 
 # ──────────────────────────────────────────────
@@ -137,9 +149,80 @@ def get_status(task_id: str):
     }
 
 
+@app.post("/infer")
+def start_inference(req: InferRequest):
+    """启动一个推理任务（异步，立即返回）"""
+    infer_id = req.inferenceId
+
+    if infer_id in _running_infer and _running_infer[infer_id].poll() is None:
+        raise HTTPException(status_code=409, detail=f"Inference {infer_id} is already running")
+
+    cmd = [req.pythonPath, req.scriptPath]
+    for key, value in req.args.items():
+        cmd += [f"--{key}", str(value)]
+
+    logger.info("Starting inference: %s", " ".join(cmd))
+
+    proc = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    _running_infer[infer_id] = proc
+    _infer_exit.pop(infer_id, None)
+
+    def _drain(p: subprocess.Popen, iid: str):
+        for line in p.stdout:
+            logger.info("[infer/%s] %s", iid, line.rstrip())
+        exit_code = p.wait()
+        _infer_exit[iid] = exit_code
+        logger.info("Inference finished: inferenceId=%s, exit=%d", iid, exit_code)
+
+    Thread(target=_drain, args=(proc, infer_id), daemon=True).start()
+
+    return {"inferenceId": infer_id, "pid": proc.pid, "status": "STARTED"}
+
+
+@app.get("/infer/status/{inference_id}")
+def get_infer_status(inference_id: str):
+    """查询推理任务是否仍在运行"""
+    proc = _running_infer.get(inference_id)
+    running = proc is not None and proc.poll() is None
+    exit_code = _infer_exit.get(inference_id)
+    return {
+        "inferenceId": inference_id,
+        "running": running,
+        "pid": proc.pid if running else None,
+        "exitCode": exit_code,
+    }
+
+
+@app.post("/infer/stop/{inference_id}")
+def stop_inference(inference_id: str):
+    """停止推理任务"""
+    proc = _running_infer.get(inference_id)
+    if proc is None or proc.poll() is not None:
+        raise HTTPException(status_code=404, detail=f"No running inference: {inference_id}")
+
+    try:
+        proc.terminate()
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+
+    _running_infer.pop(inference_id, None)
+    logger.info("Stopped inference: inferenceId=%s", inference_id)
+    return {"inferenceId": inference_id, "status": "STOPPED"}
+
+
 @app.get("/health")
 def health():
-    return {"status": "ok", "runningTasks": len(_running)}
+    return {
+        "status": "ok",
+        "runningTasks": len(_running),
+        "runningInferences": len([p for p in _running_infer.values() if p.poll() is None]),
+    }
 
 
 # ──────────────────────────────────────────────

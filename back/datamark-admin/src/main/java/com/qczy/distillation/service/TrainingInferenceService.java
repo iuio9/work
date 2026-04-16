@@ -10,30 +10,29 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
-import javax.annotation.PostConstruct;
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 模型推理服务
+ * 模型推理服务（远程算法服务器版本）
  *
- * 功能：
- * 1. 使用训练好的模型对图像进行推理
- * 2. 生成自动标注结果
- * 3. 异步执行推理任务
- * 4. 管理推理状态和结果
+ * 将推理任务分发到独立的算法服务器（GPU机）上执行。
+ * 算法服务器上需要运行 training_agent.py（FastAPI 服务）。
  *
- * @author AI Assistant
- * @date 2025-01-13
+ * 调用链：
+ *   Spring Boot → POST http://算法服务器:5000/infer
+ *     └─ training_agent.py 在算法服务器启动 subprocess
+ *         └─ Python 推理脚本 → 写出结果到 outputDir（NFS 挂载）
  */
 @Service
 public class TrainingInferenceService {
@@ -43,75 +42,40 @@ public class TrainingInferenceService {
     @Autowired
     private MdTrainingTaskMapper trainingTaskMapper;
 
-    @Value("${distillation.python.executable:python3}")
-    private String pythonExecutable;
+    /** 算法服务器上 training_agent.py 的根 URL */
+    @Value("${distillation.agent.url:http://localhost:5000}")
+    private String agentUrl;
 
-    @Value("${distillation.inference-script.path:/home/user/work/back/datamark-admin/inference_qwen_vl_distilled_models.py}")
+    /** 算法服务器上的 Python 解释器路径 */
+    @Value("${distillation.python.path:python3}")
+    private String pythonPath;
+
+    /** 算法服务器上推理脚本的绝对路径 */
+    @Value("${distillation.inference-script.path:/opt/datamark/inference_qwen_vl_distilled_models.py}")
     private String inferenceScriptPath;
+
+    /** 轮询推理状态的间隔（毫秒） */
+    private static final long POLL_INTERVAL_MS = 5_000;
+
+    /** 推理任务最长等待时间（毫秒，默认 4 小时） */
+    private static final long MAX_WAIT_MS = 4 * 60 * 60 * 1_000L;
+
+    private final RestTemplate restTemplate = new RestTemplate();
 
     // 推理任务状态缓存
     private final Map<String, InferenceResultDTO> inferenceResults = new ConcurrentHashMap<>();
 
-    /**
-     * 初始化演示推理任务数据
-     */
-    @PostConstruct
-    public void initDemoInferenceData() {
-        logger.info("初始化演示推理任务数据...");
-
-        // 演示任务1：已完成的推理任务
-        InferenceResultDTO demo1 = new InferenceResultDTO();
-        demo1.setInferenceId("DEMO_INF_COMPLETED_001");
-        demo1.setTaskId("DEMO_COMPLETED");
-        demo1.setModelType("ResNet18");
-        demo1.setStatus("COMPLETED");
-        demo1.setStartTime("2026-01-14T12:00:00");
-        demo1.setEndTime("2026-01-14T12:15:30");
-        demo1.setOutputDir("/data/inference_results/DEMO_INF_COMPLETED_001");
-        demo1.setProcessedImages(150);
-        demo1.setSuccessCount(148);
-        demo1.setFailureCount(2);
-        demo1.setDuration(930L); // 15分30秒
-        inferenceResults.put(demo1.getInferenceId(), demo1);
-
-        // 演示任务2：运行中的推理任务
-        InferenceResultDTO demo2 = new InferenceResultDTO();
-        demo2.setInferenceId("DEMO_INF_RUNNING_002");
-        demo2.setTaskId("DEMO_COMPLETED");
-        demo2.setModelType("ResNet18");
-        demo2.setStatus("RUNNING");
-        demo2.setStartTime(LocalDateTime.now().minusMinutes(5).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
-        demo2.setOutputDir("/data/inference_results/DEMO_INF_RUNNING_002");
-        demo2.setProcessedImages(45);
-        demo2.setSuccessCount(45);
-        demo2.setFailureCount(0);
-        inferenceResults.put(demo2.getInferenceId(), demo2);
-
-        // 演示任务3：失败的推理任务
-        InferenceResultDTO demo3 = new InferenceResultDTO();
-        demo3.setInferenceId("DEMO_INF_FAILED_003");
-        demo3.setTaskId("DEMO_PAUSED");
-        demo3.setModelType("ResNet18");
-        demo3.setStatus("FAILED");
-        demo3.setStartTime("2026-01-14T11:30:00");
-        demo3.setEndTime("2026-01-14T11:32:15");
-        demo3.setOutputDir("/data/inference_results/DEMO_INF_FAILED_003");
-        demo3.setProcessedImages(12);
-        demo3.setSuccessCount(10);
-        demo3.setFailureCount(2);
-        demo3.setDuration(135L); // 2分15秒
-        demo3.setErrorMessage("模型文件不存在或已损坏");
-        inferenceResults.put(demo3.getInferenceId(), demo3);
-
-        logger.info("演示推理任务数据初始化完成，共 {} 个任务", inferenceResults.size());
-    }
+    // ─────────────────────────────────────────────────────────────────
+    // 公开接口
+    // ─────────────────────────────────────────────────────────────────
 
     /**
-     * 提交推理任务（异步执行）
+     * 提交推理任务（异步执行）。
+     * 向算法服务器发送推理请求，然后轮询直到完成。
      */
     @Async("taskExecutor")
     public void submitInferenceTask(String inferenceId, InferenceRequestDTO request) {
-        logger.info("开始推理任务: {}", inferenceId);
+        logger.info("提交推理任务到算法服务器: inferenceId={}", inferenceId);
 
         InferenceResultDTO result = new InferenceResultDTO();
         result.setInferenceId(inferenceId);
@@ -119,7 +83,6 @@ public class TrainingInferenceService {
         result.setStatus("RUNNING");
         result.setStartTime(LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
         result.setOutputDir(request.getOutputDir());
-
         inferenceResults.put(inferenceId, result);
 
         try {
@@ -128,43 +91,91 @@ public class TrainingInferenceService {
             if (task == null) {
                 throw new RuntimeException("训练任务不存在: " + request.getTaskId());
             }
-
             if (!"completed".equalsIgnoreCase(task.getStatus())) {
                 throw new RuntimeException("训练任务未完成，无法进行推理");
             }
 
-            // 获取模型路径
             String modelPath = task.getModelPath();
             if (modelPath == null || modelPath.isEmpty()) {
                 throw new RuntimeException("模型路径为空，请确认训练任务已保存模型");
             }
-            if (!new File(modelPath).exists()) {
-                throw new RuntimeException("模型文件不存在: " + modelPath);
-            }
 
             // 解析训练配置
-            JSONObject trainingConfig = JSON.parseObject(task.getTrainingConfig());
-            String studentModelType = trainingConfig.getString("studentModelType");
-            Integer numClasses = trainingConfig.getInteger("numClasses");
-            String studentModelSize = trainingConfig.getString("studentModelSize");
-            Integer imageSize = trainingConfig.getInteger("imageSize");
+            String studentModelType = "resnet";
+            Integer numClasses = 10;
+            String studentModelSize = null;
+            Integer imageSize = null;
+
+            if (task.getTrainingConfig() != null && !task.getTrainingConfig().isEmpty()) {
+                JSONObject trainingConfig = JSON.parseObject(task.getTrainingConfig());
+                if (trainingConfig.getString("studentModelType") != null)
+                    studentModelType = trainingConfig.getString("studentModelType");
+                if (trainingConfig.getInteger("numClasses") != null)
+                    numClasses = trainingConfig.getInteger("numClasses");
+                studentModelSize = trainingConfig.getString("studentModelSize");
+                imageSize = trainingConfig.getInteger("imageSize");
+            }
 
             result.setModelType(studentModelType);
 
-            // 执行推理
-            executeInference(
-                    modelPath,
-                    studentModelType,
-                    request.getInputDir(),
-                    request.getOutputDir(),
-                    numClasses,
-                    studentModelSize,
-                    imageSize,
-                    request.getBatchSize(),
-                    result
-            );
+            // 构建发往 training_agent 的推理请求
+            Map<String, String> args = new LinkedHashMap<>();
+            args.put("model_path",  modelPath);
+            args.put("model_type",  studentModelType);
+            args.put("input_dir",   request.getInputDir());
+            args.put("output_dir",  request.getOutputDir());
+            args.put("num_classes", String.valueOf(numClasses));
+            if (studentModelSize != null && !studentModelSize.isEmpty())
+                args.put("model_size", studentModelSize);
+            if (imageSize != null)
+                args.put("image_size", String.valueOf(imageSize));
+            if (request.getBatchSize() != null)
+                args.put("batch_size", String.valueOf(request.getBatchSize()));
 
-            // 统计结果
+            Map<String, Object> body = new HashMap<>();
+            body.put("inferenceId", inferenceId);
+            body.put("scriptPath",  inferenceScriptPath);
+            body.put("pythonPath",  pythonPath);
+            body.put("args",        args);
+
+            // POST 到算法服务器
+            String startUrl = agentUrl + "/infer";
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            HttpEntity<String> entity = new HttpEntity<>(JSON.toJSONString(body), headers);
+
+            logger.info("调用算法服务器推理: POST {}", startUrl);
+            restTemplate.postForObject(startUrl, entity, Map.class);
+
+            // 轮询直到推理结束
+            String statusUrl = agentUrl + "/infer/status/" + inferenceId;
+            long waited = 0;
+            boolean success = false;
+
+            while (waited < MAX_WAIT_MS) {
+                Thread.sleep(POLL_INTERVAL_MS);
+                waited += POLL_INTERVAL_MS;
+
+                Map<?, ?> statusResp = restTemplate.getForObject(statusUrl, Map.class);
+                if (statusResp == null) continue;
+
+                boolean running = Boolean.TRUE.equals(statusResp.get("running"));
+                if (!running) {
+                    Object exitCodeObj = statusResp.get("exitCode");
+                    int exitCode = exitCodeObj instanceof Number ? ((Number) exitCodeObj).intValue() : -1;
+                    if (exitCode != 0) {
+                        throw new RuntimeException("推理脚本执行失败，退出码: " + exitCode);
+                    }
+                    success = true;
+                    break;
+                }
+            }
+
+            if (!success) {
+                throw new RuntimeException("推理任务超时");
+            }
+
+            // 统计输出文件数（通过 NFS 挂载路径访问）
             File outputDirFile = new File(request.getOutputDir());
             if (outputDirFile.exists() && outputDirFile.isDirectory()) {
                 File[] jsonFiles = outputDirFile.listFiles((dir, name) -> name.endsWith(".json"));
@@ -175,121 +186,44 @@ public class TrainingInferenceService {
             }
 
             result.setStatus("COMPLETED");
-            logger.info("推理任务完成: {}", inferenceId);
+            logger.info("推理任务完成: inferenceId={}", inferenceId);
 
         } catch (Exception e) {
-            logger.error("推理任务失败: " + inferenceId, e);
+            logger.error("推理任务失败: inferenceId=" + inferenceId, e);
             result.setStatus("FAILED");
             result.setErrorMessage(e.getMessage());
             result.setFailureCount(1);
         } finally {
             result.setEndTime(LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
-
-            // 计算耗时
             if (result.getStartTime() != null && result.getEndTime() != null) {
                 try {
                     LocalDateTime start = LocalDateTime.parse(result.getStartTime(), DateTimeFormatter.ISO_LOCAL_DATE_TIME);
-                    LocalDateTime end = LocalDateTime.parse(result.getEndTime(), DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+                    LocalDateTime end   = LocalDateTime.parse(result.getEndTime(),   DateTimeFormatter.ISO_LOCAL_DATE_TIME);
                     result.setDuration(java.time.Duration.between(start, end).getSeconds());
-                } catch (Exception e) {
-                    logger.warn("计算耗时失败", e);
-                }
+                } catch (Exception ignored) {}
             }
-
             inferenceResults.put(inferenceId, result);
         }
     }
 
     /**
-     * 执行Python推理脚本
+     * 停止推理任务（通知算法服务器终止进程）。
      */
-    private void executeInference(
-            String modelPath,
-            String modelType,
-            String inputDir,
-            String outputDir,
-            Integer numClasses,
-            String modelSize,
-            Integer imageSize,
-            Integer batchSize,
-            InferenceResultDTO result
-    ) throws Exception {
-
-        // 构建Python命令
-        List<String> command = buildInferenceCommand(
-                modelPath, modelType, inputDir, outputDir,
-                numClasses, modelSize, imageSize, batchSize
-        );
-
-        logger.info("执行推理命令: {}", String.join(" ", command));
-
-        ProcessBuilder processBuilder = new ProcessBuilder(command);
-        processBuilder.redirectErrorStream(true);
-
-        Process process = processBuilder.start();
-
-        // 读取输出
-        StringBuilder output = new StringBuilder();
-        try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                logger.info("[推理] {}", line);
-                output.append(line).append("\n");
+    public boolean stopInference(String inferenceId) {
+        try {
+            String url = agentUrl + "/infer/stop/" + inferenceId;
+            restTemplate.postForObject(url, null, Map.class);
+            logger.info("已通知算法服务器停止推理: inferenceId={}", inferenceId);
+            InferenceResultDTO result = inferenceResults.get(inferenceId);
+            if (result != null) {
+                result.setStatus("STOPPED");
+                result.setEndTime(LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
             }
+            return true;
+        } catch (Exception e) {
+            logger.warn("停止推理任务失败（可能已结束）: inferenceId={}, error={}", inferenceId, e.getMessage());
+            return false;
         }
-
-        int exitCode = process.waitFor();
-        logger.info("推理脚本执行完成，退出码: {}", exitCode);
-
-        if (exitCode != 0) {
-            throw new RuntimeException("推理脚本执行失败，退出码: " + exitCode + "\n输出:\n" + output);
-        }
-    }
-
-    /**
-     * 构建推理命令
-     */
-    private List<String> buildInferenceCommand(
-            String modelPath,
-            String modelType,
-            String inputDir,
-            String outputDir,
-            Integer numClasses,
-            String modelSize,
-            Integer imageSize,
-            Integer batchSize
-    ) {
-        List<String> command = new ArrayList<>();
-        command.add(pythonExecutable);
-        command.add(inferenceScriptPath);
-        command.add("--model_path");
-        command.add(modelPath);
-        command.add("--model_type");
-        command.add(modelType);
-        command.add("--input_dir");
-        command.add(inputDir);
-        command.add("--output_dir");
-        command.add(outputDir);
-        command.add("--num_classes");
-        command.add(String.valueOf(numClasses));
-
-        if (modelSize != null && !modelSize.isEmpty()) {
-            command.add("--model_size");
-            command.add(modelSize);
-        }
-
-        if (imageSize != null) {
-            command.add("--image_size");
-            command.add(String.valueOf(imageSize));
-        }
-
-        if (batchSize != null) {
-            command.add("--batch_size");
-            command.add(String.valueOf(batchSize));
-        }
-
-        return command;
     }
 
     /**
