@@ -8,29 +8,29 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 训练执行服务
+ * 训练执行服务（远程算法服务器版本）
  *
- * 功能：
- * 1. 异步启动Python训练脚本
- * 2. 管理训练进程
- * 3. 解析training_config JSON并转换为命令行参数
- * 4. 监控训练进程状态
+ * 将训练任务分发到独立的算法服务器（GPU机）上执行。
+ * 算法服务器上需要运行 training_agent.py（FastAPI 服务）。
  *
- * @author AI Assistant
- * @date 2025-01-25
+ * 调用链：
+ *   Spring Boot → POST http://算法服务器:5000/train
+ *     └─ training_agent.py 在算法服务器启动 subprocess
+ *         └─ Python 训练脚本 → PUT http://存储服务器:8080/model-distillation/.../progress
  */
 @Service
 public class TrainingExecutionService {
@@ -43,502 +43,274 @@ public class TrainingExecutionService {
     @Autowired
     private MdTrainingTaskService trainingTaskService;
 
-    /**
-     * Python解释器路径
-     */
+    // ── 算法服务器（Training Agent）配置 ──────────────────────────────
+
+    /** 算法服务器上 training_agent.py 的根 URL，例如 http://192.168.1.100:5000 */
+    @Value("${distillation.agent.url:http://localhost:5000}")
+    private String agentUrl;
+
+    /** 算法服务器上的 Python 解释器路径 */
     @Value("${distillation.python.path:python3}")
     private String pythonPath;
 
-    /**
-     * 训练脚本路径
-     */
-    @Value("${distillation.script.path:/home/user/work/back/datamark-admin/train_distillation.py}")
+    /** 算法服务器上各训练脚本的绝对路径 */
+    @Value("${distillation.script.path:/opt/datamark/train_distillation.py}")
     private String scriptPath;
 
-    /**
-     * Qwen2.5-VL训练脚本路径
-     */
-    @Value("${distillation.qwen-script.path:/home/user/work/back/datamark-admin/train_qwen_vl_distillation.py}")
+    @Value("${distillation.qwen-script.path:/opt/datamark/train_qwen_vl_distillation.py}")
     private String qwenScriptPath;
 
-    /**
-     * 单独训练脚本路径（不使用教师模型）
-     */
-    @Value("${distillation.student-only-script.path:/home/user/work/back/datamark-admin/train_student_only.py}")
+    @Value("${distillation.student-only-script.path:/opt/datamark/train_student_only.py}")
     private String studentOnlyScriptPath;
 
-    /**
-     * 后端API基础URL
-     */
+    // ── 回调地址（存储服务器自身） ────────────────────────────────────
+
+    /** 训练脚本回调进度时使用的地址（存储服务器对外 IP:Port） */
     @Value("${distillation.api.base-url:http://localhost:8080}")
     private String apiBaseUrl;
 
-    /**
-     * 模型存储根目录
-     */
-    @Value("${distillation.models.root:/data/models}")
-    private String modelsRoot;
+    // ── 路径（算法服务器视角） ────────────────────────────────────────
 
-    /**
-     * 数据集根目录（必须在配置文件中指定）
-     */
+    /** 算法服务器上数据集的路径（NFS 挂载点或本地路径） */
     @Value("${distillation.datasets.root}")
     private String datasetsRoot;
 
-    /**
-     * 训练输出根目录（必须在配置文件中指定）
-     */
+    /** 算法服务器上训练输出的路径 */
     @Value("${distillation.output.root}")
     private String outputRoot;
 
-    /**
-     * 进程管理Map: taskId -> Process
-     */
-    private final Map<String, Process> runningProcesses = new ConcurrentHashMap<>();
+    /** 模型权重根目录 */
+    @Value("${distillation.models.root:/data/models}")
+    private String modelsRoot;
+
+    private final RestTemplate restTemplate = new RestTemplate();
+
+    // ─────────────────────────────────────────────────────────────────
+    // 公开接口
+    // ─────────────────────────────────────────────────────────────────
 
     /**
-     * 异步启动训练任务
-     *
-     * @param taskId 任务ID
+     * 异步提交训练任务到算法服务器。
+     * 立即返回，Python 脚本通过回调接口上报进度。
      */
     @Async("taskExecutor")
     public void startTrainingAsync(String taskId) {
-        logger.info("开始异步训练任务: {}", taskId);
+        logger.info("提交训练任务到算法服务器: taskId={}", taskId);
 
         try {
-            // 1. 从数据库读取任务配置
             MdTrainingTaskEntity task = trainingTaskMapper.selectByTaskId(taskId);
             if (task == null) {
                 logger.error("任务不存在: {}", taskId);
                 return;
             }
 
-            // 2. 解析training_config JSON
             TrainingConfigDTO config = null;
             if (task.getTrainingConfig() != null && !task.getTrainingConfig().isEmpty()) {
                 config = JSON.parseObject(task.getTrainingConfig(), TrainingConfigDTO.class);
             }
 
-            // 3. 构建Python命令
-            List<String> command = buildPythonCommand(task, config);
+            // 构建发往 training_agent 的请求体
+            Map<String, Object> requestBody = buildAgentRequest(task, config);
 
-            // 4. 打印命令（用于调试）
-            logger.info("训练命令: {}", String.join(" ", command));
+            // 发送到算法服务器
+            String url = agentUrl + "/train";
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            HttpEntity<String> entity = new HttpEntity<>(JSON.toJSONString(requestBody), headers);
 
-            // 5. 启动进程
-            ProcessBuilder pb = new ProcessBuilder(command);
-            pb.redirectErrorStream(true); // 合并标准输出和错误输出
-
-            // 设置工作目录
-            pb.directory(new File(System.getProperty("user.dir")));
-
-            // 启动进程
-            Process process = pb.start();
-            runningProcesses.put(taskId, process);
-
-            logger.info("Python训练进程已启动，任务ID: {}", taskId);
-
-            // 6. 读取并打印输出
-            try (BufferedReader reader = new BufferedReader(
-                    new InputStreamReader(process.getInputStream()))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    logger.info("[{}] {}", taskId, line);
-                }
-            }
-
-            // 7. 等待进程结束
-            int exitCode = process.waitFor();
-            logger.info("训练进程结束: taskId={}, exitCode={}", taskId, exitCode);
-
-            // 8. 清理进程引用
-            runningProcesses.remove(taskId);
-
-            // 9. 根据退出码更新任务状态
-            if (exitCode != 0) {
-                trainingTaskService.updateError(taskId, "训练进程异常退出，退出码: " + exitCode);
-            }
+            logger.info("调用算法服务器: POST {}", url);
+            Map<?, ?> response = restTemplate.postForObject(url, entity, Map.class);
+            logger.info("算法服务器响应: {}", response);
 
         } catch (Exception e) {
-            logger.error("训练任务执行失败: taskId={}", taskId, e);
-            trainingTaskService.updateError(taskId, "训练执行异常: " + e.getMessage());
-            runningProcesses.remove(taskId);
+            logger.error("提交训练任务失败: taskId={}", taskId, e);
+            trainingTaskService.updateError(taskId, "提交到算法服务器失败: " + e.getMessage());
         }
     }
 
     /**
-     * 停止训练任务
-     *
-     * @param taskId 任务ID
-     * @return 是否成功
+     * 停止训练任务（通知算法服务器终止进程）。
      */
     public boolean stopTraining(String taskId) {
-        Process process = runningProcesses.get(taskId);
-        if (process != null && process.isAlive()) {
-            logger.info("正在停止训练任务: {}", taskId);
-            process.destroy();
-
-            // 等待进程结束（最多5秒）
-            try {
-                boolean terminated = process.waitFor(5, java.util.concurrent.TimeUnit.SECONDS);
-                if (!terminated) {
-                    logger.warn("进程未在5秒内结束，强制终止: {}", taskId);
-                    process.destroyForcibly();
-                }
-                runningProcesses.remove(taskId);
-                return true;
-            } catch (InterruptedException e) {
-                logger.error("等待进程结束时被中断: {}", taskId, e);
-                Thread.currentThread().interrupt();
-                return false;
-            }
-        } else {
-            logger.warn("没有找到运行中的进程: {}", taskId);
+        try {
+            String url = agentUrl + "/stop/" + taskId;
+            restTemplate.postForObject(url, null, Map.class);
+            logger.info("已通知算法服务器停止任务: {}", taskId);
+            return true;
+        } catch (Exception e) {
+            logger.warn("停止训练任务失败（可能已结束）: taskId={}, error={}", taskId, e.getMessage());
             return false;
         }
     }
 
     /**
-     * 检查任务是否正在运行
-     *
-     * @param taskId 任务ID
-     * @return 是否运行中
+     * 检查任务是否仍在算法服务器上运行。
      */
     public boolean isTrainingRunning(String taskId) {
-        Process process = runningProcesses.get(taskId);
-        return process != null && process.isAlive();
+        try {
+            String url = agentUrl + "/status/" + taskId;
+            Map<?, ?> resp = restTemplate.getForObject(url, Map.class);
+            return resp != null && Boolean.TRUE.equals(resp.get("running"));
+        } catch (Exception e) {
+            logger.warn("查询训练状态失败: taskId={}, error={}", taskId, e.getMessage());
+            return false;
+        }
     }
 
+    public int getRunningTaskCount() {
+        // 轻量估算，不强依赖 agent 可达性
+        try {
+            String url = agentUrl + "/health";
+            Map<?, ?> resp = restTemplate.getForObject(url, Map.class);
+            if (resp != null && resp.get("runningTasks") instanceof Number) {
+                return ((Number) resp.get("runningTasks")).intValue();
+            }
+        } catch (Exception ignored) {}
+        return 0;
+    }
+
+    public List<String> getRunningTaskIds() {
+        return new ArrayList<>(); // agent 暂未暴露列表接口，按需扩展
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // 私有辅助方法
+    // ─────────────────────────────────────────────────────────────────
+
     /**
-     * 构建Python训练命令
-     *
-     * @param task 训练任务实体
-     * @param config 高级配置DTO
-     * @return 命令列表
+     * 构建发往 training_agent 的请求体。
+     * 结构与 training_agent.py 的 TrainRequest 对应：
+     *   { taskId, scriptPath, pythonPath, apiBaseUrl, args{}, flags[] }
      */
-    private List<String> buildPythonCommand(MdTrainingTaskEntity task, TrainingConfigDTO config) {
-        List<String> command = new ArrayList<>();
-
-        // Python解释器
-        command.add(pythonPath);
-
-        // 训练脚本（根据训练模式和教师模型类型动态选择）
+    private Map<String, Object> buildAgentRequest(MdTrainingTaskEntity task,
+                                                   TrainingConfigDTO config) {
         String trainingMode = task.getTrainingMode() != null ? task.getTrainingMode() : "distillation";
-        command.add(getTrainingScript(task.getTeacherModel(), trainingMode));
+        String script = getTrainingScript(task.getTeacherModel(), trainingMode);
 
-        // ========== 基础配置 ==========
-        command.add("--task_id");
-        command.add(task.getTaskId());
+        // args: key 不带 "--"，value 都是字符串
+        Map<String, String> args = new LinkedHashMap<>();
 
-        command.add("--api_base_url");
-        command.add(apiBaseUrl);
-
-        // ========== 模型配置 ==========
-        // 只有知识蒸馏模式才需要教师模型
+        // 模型配置
         if ("distillation".equals(trainingMode)) {
-            command.add("--teacher_model");
-            command.add(task.getTeacherModel());
-
-            // 教师模型路径
-            String teacherPath = getModelPath(task.getTeacherModel(), config);
-            command.add("--teacher_path");
-            command.add(teacherPath);
+            args.put("teacher_model", task.getTeacherModel());
+            args.put("teacher_path", getModelPath(task.getTeacherModel(), config));
         }
 
-        command.add("--student_model");
-        command.add(task.getStudentModel());
+        args.put("student_model", task.getStudentModel());
 
-        // 学生模型路径（可选）
         String studentPath = getStudentModelPath(task.getStudentModel(), config);
         if (studentPath != null && !studentPath.isEmpty()) {
-            command.add("--student_path");
-            command.add(studentPath);
+            args.put("student_path", studentPath);
         }
 
-        // ========== 数据集配置 ==========
-        command.add("--dataset_id");
-        command.add(String.valueOf(task.getDatasetId()));
-
+        // 数据集
+        args.put("dataset_id", String.valueOf(task.getDatasetId()));
         if (task.getValDatasetId() != null) {
-            command.add("--val_dataset_id");
-            command.add(String.valueOf(task.getValDatasetId()));
+            args.put("val_dataset_id", String.valueOf(task.getValDatasetId()));
         }
+        args.put("datasets_root", datasetsRoot);
 
-        // 数据集根目录（从配置文件读取）
-        logger.info("添加数据集根目录参数: datasetsRoot = {}", datasetsRoot);
-        command.add("--datasets_root");
-        command.add(datasetsRoot);
+        // 训练参数
+        args.put("epochs",         String.valueOf(task.getTotalEpochs()));
+        args.put("batch_size",     String.valueOf(task.getBatchSize()));
+        args.put("learning_rate",  task.getLearningRate().toString());
 
-        // ========== 训练参数 ==========
-        command.add("--epochs");
-        command.add(String.valueOf(task.getTotalEpochs()));
+        // LoRA
+        args.put("lora_rank",    String.valueOf(task.getLoraRank()));
+        args.put("lora_alpha",   String.valueOf(task.getLoraAlpha()));
+        args.put("lora_dropout", task.getLoraDropout().toString());
 
-        command.add("--batch_size");
-        command.add(String.valueOf(task.getBatchSize()));
+        // 蒸馏参数
+        args.put("temperature",       task.getTemperature().toString());
+        args.put("hard_label_weight", String.valueOf(1.0 - task.getAlpha().doubleValue()));
+        args.put("soft_label_weight", task.getAlpha().toString());
 
-        command.add("--learning_rate");
-        command.add(task.getLearningRate().toString());
-
-        // ========== LoRA配置（仅知识蒸馏模式） ==========
-        if ("distillation".equals(trainingMode)) {
-            command.add("--lora_rank");
-            command.add(String.valueOf(task.getLoraRank()));
-
-            command.add("--lora_alpha");
-            command.add(String.valueOf(task.getLoraAlpha()));
-
-            command.add("--lora_dropout");
-            command.add(task.getLoraDropout().toString());
-        }
-
-        // ========== 知识蒸馏参数（仅知识蒸馏模式） ==========
-        if ("distillation".equals(trainingMode)) {
-            command.add("--temperature");
-            command.add(task.getTemperature().toString());
-
-            command.add("--hard_label_weight");
-            command.add(String.valueOf(1.0 - task.getAlpha().doubleValue()));
-
-            command.add("--soft_label_weight");
-            command.add(task.getAlpha().toString());
-        }
-
-        // ========== 高级配置（从JSON解析） ==========
+        // 高级配置
         if (config != null) {
-            // 优化器配置
-            if (config.getOptimizer() != null) {
-                command.add("--optimizer");
-                command.add(config.getOptimizer());
-            }
+            if (config.getOptimizer() != null)     args.put("optimizer",      config.getOptimizer());
+            if (config.getLrScheduler() != null)   args.put("lr_scheduler",   config.getLrScheduler());
+            if (config.getWeightDecay() != null)   args.put("weight_decay",   config.getWeightDecay().toString());
+            if (config.getGradAccumSteps() != null) args.put("grad_accum_steps", String.valueOf(config.getGradAccumSteps()));
+            if (config.getMaxGradNorm() != null)   args.put("max_grad_norm",  config.getMaxGradNorm().toString());
 
-            if (config.getLrScheduler() != null) {
-                command.add("--lr_scheduler");
-                command.add(config.getLrScheduler());
-            }
-
-            if (config.getWeightDecay() != null) {
-                command.add("--weight_decay");
-                command.add(config.getWeightDecay().toString());
-            }
-
-            if (config.getGradAccumSteps() != null) {
-                command.add("--grad_accum_steps");
-                command.add(String.valueOf(config.getGradAccumSteps()));
-            }
-
-            if (config.getMaxGradNorm() != null) {
-                command.add("--max_grad_norm");
-                command.add(config.getMaxGradNorm().toString());
-            }
-
-            // GPU配置
             if (config.getGpuDevices() != null && !config.getGpuDevices().isEmpty()) {
-                command.add("--gpu_devices");
-                command.add(config.getGpuDevices().stream()
-                        .map(String::valueOf)
-                        .reduce((a, b) -> a + "," + b)
-                        .orElse("0"));
+                args.put("gpu_devices", config.getGpuDevices().stream()
+                        .map(String::valueOf).reduce((a, b) -> a + "," + b).orElse("0"));
             }
-
-            if (config.getAutoSaveCheckpoint() != null) {
-                command.add("--auto_save_checkpoint");
-                command.add(String.valueOf(config.getAutoSaveCheckpoint()));
-            }
-
             if (config.getCheckpointInterval() != null) {
-                command.add("--checkpoint_interval");
-                command.add(String.valueOf(config.getCheckpointInterval()));
+                args.put("checkpoint_interval", String.valueOf(config.getCheckpointInterval()));
+            }
+            if (config.getLoraAdvancedConfig() != null) {
+                TrainingConfigDTO.LoraAdvancedConfig lora = config.getLoraAdvancedConfig();
+                if (lora.getTargetModules() != null && !lora.getTargetModules().isEmpty())
+                    args.put("lora_target_modules", String.join(",", lora.getTargetModules()));
+                if (lora.getBiasTrain() != null)
+                    args.put("lora_bias", lora.getBiasTrain());
+            }
+            if (config.getDistillationAdvancedConfig() != null) {
+                TrainingConfigDTO.DistillationAdvancedConfig d = config.getDistillationAdvancedConfig();
+                if (d.getLossType() != null) args.put("distill_loss_type", d.getLossType());
             }
 
-            // LoRA高级配置（仅知识蒸馏模式）
-            if ("distillation".equals(trainingMode) && config.getLoraAdvancedConfig() != null) {
-                TrainingConfigDTO.LoraAdvancedConfig loraConfig = config.getLoraAdvancedConfig();
-
-                if (loraConfig.getTargetModules() != null && !loraConfig.getTargetModules().isEmpty()) {
-                    command.add("--lora_target_modules");
-                    command.add(String.join(",", loraConfig.getTargetModules()));
-                }
-
-                if (loraConfig.getBiasTrain() != null) {
-                    command.add("--lora_bias");
-                    command.add(loraConfig.getBiasTrain());
-                }
-            }
-
-            // 知识蒸馏高级配置（仅知识蒸馏模式）
-            if ("distillation".equals(trainingMode) && config.getDistillationAdvancedConfig() != null) {
-                TrainingConfigDTO.DistillationAdvancedConfig distillConfig =
-                        config.getDistillationAdvancedConfig();
-
-                if (distillConfig.getHardLabelWeight() != null) {
-                    command.add("--hard_label_weight");
-                    command.add(distillConfig.getHardLabelWeight().toString());
-                }
-
-                if (distillConfig.getSoftLabelWeight() != null) {
-                    command.add("--soft_label_weight");
-                    command.add(distillConfig.getSoftLabelWeight().toString());
-                }
-
-                if (distillConfig.getLossType() != null) {
-                    command.add("--distill_loss_type");
-                    command.add(distillConfig.getLossType());
-                }
-            }
-
-            // ========== 模型架构与任务配置（两种模式通用） ==========
-            String studentModelType = config.getStudentModelType() != null ?
-                config.getStudentModelType() : "resnet";
-            command.add("--student_model_type");
-            command.add(studentModelType);
-
-            String studentModelSize = config.getStudentModelSize() != null ?
-                config.getStudentModelSize() : "resnet50";
-            command.add("--student_model_size");
-            command.add(studentModelSize);
-
-            String taskType = config.getTaskType() != null ?
-                config.getTaskType() : "classification";
-            command.add("--task_type");
-            command.add(taskType);
-
-            Integer numClasses = config.getNumClasses() != null ?
-                config.getNumClasses() : 10;
-            command.add("--num_classes");
-            command.add(String.valueOf(numClasses));
-
-            Integer imageSize = config.getImageSize() != null ?
-                config.getImageSize() : 224;
-            command.add("--image_size");
-            command.add(String.valueOf(imageSize));
-
-            // ========== 蒸馏专用配置（仅知识蒸馏模式） ==========
-            if ("distillation".equals(trainingMode)) {
-                if (config.getDistillationType() != null) {
-                    command.add("--distillation_type");
-                    command.add(config.getDistillationType());
-                }
-
-                if (config.getFeatureLossType() != null) {
-                    command.add("--feature_loss_type");
-                    command.add(config.getFeatureLossType());
-                }
-
-                if (config.getAlignFeature() != null) {
-                    command.add("--align_feature");
-                    command.add(String.valueOf(config.getAlignFeature()));
-                }
-            }
+            args.put("student_model_type", config.getStudentModelType()  != null ? config.getStudentModelType()  : "resnet");
+            args.put("student_model_size", config.getStudentModelSize()  != null ? config.getStudentModelSize()  : "resnet50");
+            args.put("task_type",          config.getTaskType()          != null ? config.getTaskType()          : "classification");
+            args.put("num_classes",        String.valueOf(config.getNumClasses()  != null ? config.getNumClasses()  : 10));
+            args.put("image_size",         String.valueOf(config.getImageSize()   != null ? config.getImageSize()   : 224));
+            if (config.getDistillationType() != null) args.put("distillation_type", config.getDistillationType());
+            if (config.getFeatureLossType()  != null) args.put("feature_loss_type",  config.getFeatureLossType());
+            if (config.getAlignFeature()     != null) args.put("align_feature",      String.valueOf(config.getAlignFeature()));
         } else {
-            // config 为 null时，提供默认值
-            command.add("--student_model_type");
-            command.add("resnet");
-            command.add("--student_model_size");
-            command.add("resnet50");
-            command.add("--task_type");
-            command.add("classification");
-            command.add("--num_classes");
-            command.add("10");
-            command.add("--image_size");
-            command.add("224");
+            args.put("student_model_type", "resnet");
+            args.put("student_model_size", "resnet50");
+            args.put("task_type",          "classification");
+            args.put("num_classes",        "10");
+            args.put("image_size",         "224");
         }
 
-        // ========== 输出配置 ==========
-        String outputDir = outputRoot + "/" + task.getTaskId();
-        command.add("--output_dir");
-        command.add(outputDir);
+        // 输出目录
+        args.put("output_dir", outputRoot + "/" + task.getTaskId());
 
-        return command;
+        // flags（bool 开关，如 auto_save_checkpoint）
+        List<String> flags = new ArrayList<>();
+        if (config != null && Boolean.TRUE.equals(config.getAutoSaveCheckpoint())) {
+            flags.add("auto_save_checkpoint");
+        }
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("taskId",      task.getTaskId());
+        body.put("scriptPath",  script);
+        body.put("pythonPath",  pythonPath);
+        body.put("apiBaseUrl",  apiBaseUrl);
+        body.put("args",        args);
+        body.put("flags",       flags);
+        return body;
     }
 
-    /**
-     * 根据教师模型类型选择训练脚本
-     *
-     * @param teacherModel 教师模型名称
-     * @return 训练脚本路径
-     */
     private String getTrainingScript(String teacherModel, String trainingMode) {
-        // 单独训练模式：使用student-only脚本
-        if ("direct".equals(trainingMode)) {
-            logger.info("单独训练模式，使用单独训练脚本: {}", studentOnlyScriptPath);
-            return studentOnlyScriptPath;
-        }
-
-        // 知识蒸馏模式：根据教师模型选择脚本
+        if ("direct".equals(trainingMode)) return studentOnlyScriptPath;
         if (teacherModel != null &&
             (teacherModel.toLowerCase().contains("qwen") ||
              teacherModel.toLowerCase().contains("qwen2"))) {
-            logger.info("检测到Qwen模型，使用Qwen专用训练脚本: {}", qwenScriptPath);
             return qwenScriptPath;
         }
         return scriptPath;
     }
 
-    /**
-     * 获取教师模型路径
-     *
-     * @param modelName 模型名称
-     * @param config 配置
-     * @return 模型路径
-     */
     private String getModelPath(String modelName, TrainingConfigDTO config) {
-        // 优先使用JSON配置中的路径
         if (config != null && config.getTeacherModelConfig() != null) {
-            String modelPath = config.getTeacherModelConfig().getModelPath();
-            if (modelPath != null && !modelPath.isEmpty()) {
-                return modelPath;
-            }
+            String p = config.getTeacherModelConfig().getModelPath();
+            if (p != null && !p.isEmpty()) return p;
         }
-
-        // 默认路径：modelsRoot/modelName
         return modelsRoot + "/" + modelName;
     }
 
-    /**
-     * 获取学生模型路径
-     *
-     * @param modelName 模型名称
-     * @param config 配置
-     * @return 模型路径
-     */
     private String getStudentModelPath(String modelName, TrainingConfigDTO config) {
-        // 优先使用JSON配置中的路径
         if (config != null && config.getStudentModelConfig() != null) {
-            String pretrainPath = config.getStudentModelConfig().getPretrainPath();
-            if (pretrainPath != null && !pretrainPath.isEmpty()) {
-                return pretrainPath;
-            }
+            String p = config.getStudentModelConfig().getPretrainPath();
+            if (p != null && !p.isEmpty()) return p;
+            if ("random".equals(config.getStudentModelConfig().getInitMethod())) return "";
         }
-
-        // 如果配置中指定了随机初始化，返回空
-        if (config != null && config.getStudentModelConfig() != null) {
-            String initMethod = config.getStudentModelConfig().getInitMethod();
-            if ("random".equals(initMethod)) {
-                return "";
-            }
-        }
-
-        // 默认路径
         return modelsRoot + "/" + modelName;
-    }
-
-    /**
-     * 获取正在运行的任务数量
-     *
-     * @return 运行中的任务数
-     */
-    public int getRunningTaskCount() {
-        return (int) runningProcesses.values().stream()
-                .filter(Process::isAlive)
-                .count();
-    }
-
-    /**
-     * 获取所有运行中的任务ID
-     *
-     * @return 任务ID列表
-     */
-    public List<String> getRunningTaskIds() {
-        return new ArrayList<>(runningProcesses.keySet());
     }
 }
